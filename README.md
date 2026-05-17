@@ -543,10 +543,53 @@ Redirects to role-appropriate dashboard
 | Goal sheet returned | ✅ | ✅ | Employee |
 | Check-in reminder | ✅ | — | Employee |
 
-### Setup:
-- **Email**: Add `SENDGRID_API_KEY` to API environment
-- **Teams**: Create Incoming Webhook in Teams channel → add URL as `TEAMS_WEBHOOK_URL`
-- Notifications are fire-and-forget (non-blocking) — app works without them configured
+### SendGrid Email Setup
+
+1. Go to [sendgrid.com](https://sendgrid.com) → Sign up (free tier: 100 emails/day)
+2. Navigate to **Settings → API Keys → Create API Key**
+   - Name: `GoalFlow`
+   - Permissions: **Restricted Access** → enable **Mail Send → Full Access**
+3. Copy the API key (shown only once)
+4. Add to your `.env`:
+   ```env
+   SENDGRID_API_KEY="SG.xxxxxxxxxxxxxxxxxxxxx"
+   SENDGRID_FROM_EMAIL="noreply@goalflow.demo"
+   ```
+5. *(Optional)* Verify a sender identity under **Settings → Sender Authentication** for production use
+
+### Microsoft Teams Webhook Setup
+
+1. Open **Microsoft Teams** → go to the channel where you want notifications
+2. Click the **⋯ (three dots)** next to the channel name → **Connectors** (or **Manage channel → Connectors**)
+3. Search for **"Incoming Webhook"** → click **Configure**
+4. Set the webhook name: `GoalFlow Bot`
+5. *(Optional)* Upload an icon for the bot
+6. Click **Create** → a webhook URL is generated:
+   ```
+   https://xxxxx.webhook.office.com/webhookb2/xxxx/IncomingWebhook/xxxx/xxxx
+   ```
+7. **Copy the URL** and add it to your `.env`:
+   ```env
+   TEAMS_WEBHOOK_URL="https://xxxxx.webhook.office.com/webhookb2/xxxx/IncomingWebhook/xxxx/xxxx"
+   ```
+8. Click **Done** in Teams
+
+### What notifications look like in Teams:
+
+```
+┌──────────────────────────────────────┐
+│ 🎯 GoalFlow: Goals Submitted        │
+│ 17/05/2026, 10:00:00 AM             │
+│                                      │
+│ **Priya Patel** submitted their      │
+│ goal sheet for review.               │
+│                                      │
+│ [Open in GoalFlow →]                 │
+└──────────────────────────────────────┘
+```
+
+- Notifications are **fire-and-forget** (non-blocking) — the app works fully without them configured
+- Deep links navigate directly to the relevant goal sheet in GoalFlow
 
 ---
 
