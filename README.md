@@ -29,6 +29,8 @@
 - [API Endpoints](#-api-endpoints)
 - [Demo Credentials](#-demo-credentials)
 - [Deployment](#-deployment)
+- [Docker Containerization](#-docker-containerization)
+- [Azure AD SSO Setup](#-azure-ad--microsoft-entra-id-sso-setup)
 
 ---
 
@@ -650,6 +652,114 @@ docker-compose exec goalflow-api npx prisma db seed
 | `goalflow-web` | Nginx + React build | 5173 | Frontend SPA |
 | `goalflow-api` | Node 18 Alpine | 4000 | Express REST API |
 | `goalflow-postgres` | PostgreSQL 16 Alpine | 5432 | Database |
+
+---
+
+## 🔐 Azure AD / Microsoft Entra ID SSO Setup
+
+### Prerequisites
+
+- Azure account (free or paid) — [Create free account](https://azure.microsoft.com/free/)
+- [Azure CLI](https://aka.ms/installazurecliwindows) installed (`az --version` to verify)
+
+### Quick Setup (5 minutes)
+
+```bash
+# 1. Login to Azure
+az login
+
+# 2. Get your Tenant ID
+az account show --query tenantId -o tsv
+# → Copy this as AZURE_TENANT_ID
+
+# 3. Create App Registration
+az ad app create --display-name "GoalFlow" \
+  --web-redirect-uris "http://localhost:5173" "https://goal-flow-theta.vercel.app"
+# → Copy "appId" as AZURE_CLIENT_ID
+
+# 4. Create Client Secret (⚠️ password shown ONCE — save it!)
+az ad app credential create --id "YOUR_APP_ID" --years 2
+# → Copy "password" as AZURE_CLIENT_SECRET
+
+# 5. Create Security Groups
+az ad group create --display-name "GoalFlow-Admins" --mail-nickname "goalflow-admins"
+# → Copy "id" as AZURE_GROUP_ADMIN
+
+az ad group create --display-name "GoalFlow-Managers" --mail-nickname "goalflow-managers"
+# → Copy "id" as AZURE_GROUP_MANAGER
+
+az ad group create --display-name "GoalFlow-Employees" --mail-nickname "goalflow-employees"
+# → Copy "id" as AZURE_GROUP_EMPLOYEE
+
+# 6. Add yourself to Admin group
+az ad signed-in-user show --query id -o tsv
+# → Copy your user ID
+
+az ad group member add --group "GoalFlow-Admins" --member-id "YOUR_USER_ID"
+```
+
+### Update `.env` with Azure Values
+
+```env
+AZURE_CLIENT_ID="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+AZURE_CLIENT_SECRET="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+AZURE_TENANT_ID="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+AZURE_REDIRECT_URI="http://localhost:5173"
+AZURE_GROUP_ADMIN="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+AZURE_GROUP_MANAGER="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+AZURE_GROUP_EMPLOYEE="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+```
+
+### Update Frontend Environment (Vercel)
+
+```
+VITE_AZURE_CLIENT_ID=<your-app-id>
+VITE_AZURE_TENANT_ID=<your-tenant-id>
+VITE_AZURE_REDIRECT_URI=https://goal-flow-theta.vercel.app
+```
+
+### How SSO Works
+
+```
+User clicks "Sign in with Microsoft"
+    ↓
+MSAL.js opens Azure AD popup
+    ↓
+User authenticates with Microsoft account
+    ↓
+Azure returns ID token + group claims
+    ↓
+Frontend sends token to POST /api/auth/sso
+    ↓
+Backend verifies token, maps group → role:
+  GoalFlow-Admins    → ADMIN
+  GoalFlow-Managers  → MANAGER
+  GoalFlow-Employees → EMPLOYEE
+    ↓
+Auto-provisions user if first login
+    ↓
+Returns JWT token → user logged in
+```
+
+### Quick Reference
+
+| Variable | Command to Get It |
+|----------|------------------|
+| `AZURE_TENANT_ID` | `az account show --query tenantId -o tsv` |
+| `AZURE_CLIENT_ID` | `az ad app show --id "APP_ID" --query appId -o tsv` |
+| `AZURE_CLIENT_SECRET` | `az ad app credential create --id "APP_ID"` |
+| `AZURE_GROUP_ADMIN` | `az ad group show --group "GoalFlow-Admins" --query id -o tsv` |
+| `AZURE_GROUP_MANAGER` | `az ad group show --group "GoalFlow-Managers" --query id -o tsv` |
+| `AZURE_GROUP_EMPLOYEE` | `az ad group show --group "GoalFlow-Employees" --query id -o tsv` |
+
+### Troubleshooting
+
+| Issue | Fix |
+|-------|-----|
+| "Invalid Client ID" | Verify `AZURE_CLIENT_ID` matches `az ad app show --id "APP_ID"` |
+| "Redirect URI mismatch" | Run `az ad app update --id "APP_ID" --web-redirect-uris "http://localhost:5173"` |
+| "User not in any group" | Run `az ad group member add --group "GoalFlow-Employees" --member-id "USER_ID"` |
+| SSO button not showing | Ensure `VITE_AZURE_CLIENT_ID` is set (non-empty) in Vercel env vars |
 
 ---
 
