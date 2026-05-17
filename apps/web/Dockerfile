@@ -1,7 +1,7 @@
 # ==========================================
 # Stage 1: Build Stage
 # ==========================================
-FROM node:18-alpine AS builder
+FROM node:22-alpine AS builder
 
 WORKDIR /app
 
@@ -15,14 +15,16 @@ ENV VITE_AZURE_CLIENT_ID=$VITE_AZURE_CLIENT_ID
 ENV VITE_AZURE_TENANT_ID=$VITE_AZURE_TENANT_ID
 ENV VITE_AZURE_REDIRECT_URI=$VITE_AZURE_REDIRECT_URI
 
-# Copy package files from root
+# Copy package files from all workspaces
 COPY package*.json ./
+COPY apps/api/package*.json ./apps/api/
 COPY apps/web/package*.json ./apps/web/
 COPY packages/shared/package*.json ./packages/shared/
+COPY prisma ./prisma
 
-# Install dependencies
-RUN npm ci --prefer-offline --no-audit
-RUN cd apps/web && npm ci --prefer-offline --no-audit
+# Install dependencies and generate Prisma client
+RUN npm ci --prefer-offline --no-audit && \
+    npx prisma@6 generate
 
 # Copy source code
 COPY apps/web ./apps/web

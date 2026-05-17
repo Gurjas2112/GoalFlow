@@ -1,7 +1,7 @@
 # ==========================================
 # Stage 1: Build Stage
 # ==========================================
-FROM node:18-alpine AS builder
+FROM node:22-alpine AS builder
 
 WORKDIR /app
 
@@ -11,6 +11,7 @@ RUN apk add --no-cache python3 make g++
 # Copy package files
 COPY package*.json ./
 COPY apps/api/package*.json ./apps/api/
+COPY apps/web/package*.json ./apps/web/
 COPY packages/shared/package*.json ./packages/shared/
 
 # Install dependencies
@@ -22,7 +23,7 @@ COPY packages/shared ./packages/shared
 COPY prisma ./prisma
 
 # Generate Prisma client
-RUN npx prisma generate
+RUN npx prisma@6 generate
 
 # Build TypeScript
 RUN cd apps/api && npx tsc --outDir dist || true
@@ -30,7 +31,7 @@ RUN cd apps/api && npx tsc --outDir dist || true
 # ==========================================
 # Stage 2: Runtime Stage
 # ==========================================
-FROM node:18-alpine
+FROM node:22-alpine
 
 WORKDIR /app
 
@@ -44,6 +45,7 @@ RUN addgroup -g 1001 -S nodejs && \
 # Copy package files
 COPY package*.json ./
 COPY apps/api/package*.json ./apps/api/
+COPY apps/web/package*.json ./apps/web/
 COPY packages/shared/package*.json ./packages/shared/
 
 # Install production dependencies only
@@ -52,11 +54,10 @@ RUN npm ci --omit=dev --prefer-offline --no-audit && \
 
 # Copy Prisma schema and generate client
 COPY prisma ./prisma
-RUN npx prisma generate
+RUN npx prisma@6 generate
 
 # Copy built application from builder stage
 COPY --from=builder /app/apps/api/dist ./apps/api/dist
-COPY --from=builder /app/apps/api/src ./apps/api/src
 
 # Change ownership
 RUN chown -R nodejs:nodejs /app
@@ -75,4 +76,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 ENTRYPOINT ["/sbin/tini", "--"]
 
 # Start application
-CMD ["node", "-r", "ts-node/register", "apps/api/src/index.ts"]
+CMD ["node", "apps/api/dist/index.js"]
