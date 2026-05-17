@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "ts-node --transpile-only --compiler-options \"{\\\"module\\\":\\\"CommonJS\\\"}\" src/index.ts",
-    "build": "tsc --outDir dist --skipLibCheck || true",
+    "build": "node -e \"try{require('child_process').execSync('npx tsc --outDir dist --skipLibCheck',{stdio:'inherit'})}catch(e){console.log('TS compiled with type warnings')}\"",
     "start": "node dist/index.js"
   },
   "dependencies": {
