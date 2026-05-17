@@ -2,6 +2,7 @@ import { Router, Response } from 'express';
 import prisma from '../prisma';
 import { AuthRequest, requireAuth, requireRole } from '../middleware/auth';
 import { writeAudit } from '../utils/audit';
+import { notifyGoalSubmitted, notifyGoalApproved, notifyGoalReturned } from '../utils/notify';
 
 const router = Router();
 
@@ -231,6 +232,12 @@ router.post('/:id/submit', requireAuth, async (req: AuthRequest, res: Response) 
       action: 'GOAL_SHEET_SUBMITTED',
     });
 
+    // Notify manager
+    if (updated.user?.managerId) {
+      const mgr = await prisma.user.findUnique({ where: { id: updated.user.managerId } });
+      if (mgr) notifyGoalSubmitted(updated.user.name, mgr.email, sheet.id).catch(() => {});
+    }
+
     res.json(updated);
   } catch (err) {
     console.error('Submit error:', err);
@@ -279,6 +286,9 @@ router.post('/:id/approve', requireAuth, requireRole('MANAGER', 'ADMIN'), async 
       action: 'GOAL_SHEET_APPROVED',
     });
 
+    // Notify employee
+    notifyGoalApproved(sheet.user!.name, sheet.user!.email).catch(() => {});
+
     res.json(updated);
   } catch (err) {
     res.status(500).json({ error: 'Failed to approve goal sheet' });
@@ -319,6 +329,10 @@ router.post('/:id/return', requireAuth, requireRole('MANAGER', 'ADMIN'), async (
       fieldName: 'reason',
       newValue: reason,
     });
+
+    // Notify employee
+    const emp = await prisma.user.findUnique({ where: { id: sheet.userId } });
+    if (emp) notifyGoalReturned(emp.name, emp.email, reason).catch(() => {});
 
     res.json(updated);
   } catch (err) {

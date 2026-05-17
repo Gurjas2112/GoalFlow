@@ -17,6 +17,7 @@ import reportsRouter from './routes/reports';
 import auditRouter from './routes/audit';
 import escalationsRouter from './routes/escalations';
 import analyticsRouter from './routes/analytics';
+import ssoRouter from './routes/sso';
 
 const app = express();
 app.use(cors({ origin: process.env.FRONTEND_URL || 'http://localhost:5173' }));
@@ -39,6 +40,7 @@ app.use('/api/reports', reportsRouter);
 app.use('/api/audit', auditRouter);
 app.use('/api/escalations', escalationsRouter);
 app.use('/api/analytics', analyticsRouter);
+app.use('/api/auth', ssoRouter);
 
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {
