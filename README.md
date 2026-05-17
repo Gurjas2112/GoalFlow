@@ -5,11 +5,18 @@
     A structured, digital goal management system supporting the full lifecycle of employee goals — from creation and alignment to quarterly check-ins and performance visibility.
   </p>
   <p align="center">
-    <img src="https://img.shields.io/badge/React-18-61DAFB?style=flat-square&logo=react" />
+    <img src="https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react" />
     <img src="https://img.shields.io/badge/Express-4-000000?style=flat-square&logo=express" />
     <img src="https://img.shields.io/badge/Prisma-6-2D3748?style=flat-square&logo=prisma" />
     <img src="https://img.shields.io/badge/PostgreSQL-Supabase-336791?style=flat-square&logo=postgresql" />
-    <img src="https://img.shields.io/badge/TypeScript-5-3178C6?style=flat-square&logo=typescript" />
+    <img src="https://img.shields.io/badge/TypeScript-6-3178C6?style=flat-square&logo=typescript" />
+    <img src="https://img.shields.io/badge/Docker-Ready-2496ED?style=flat-square&logo=docker" />
+    <img src="https://img.shields.io/badge/Vite-8-646CFF?style=flat-square&logo=vite" />
+  </p>
+  <p align="center">
+    <a href="https://goal-flow-theta.vercel.app"><strong>🌐 Live Demo</strong></a> · 
+    <a href="#-demo-credentials"><strong>🔑 Demo Login</strong></a> · 
+    <a href="#-docker-containerization"><strong>🐳 Docker</strong></a>
   </p>
 </p>
 
@@ -17,6 +24,7 @@
 
 ## 📋 Table of Contents
 
+- [Live Demo](#-live-demo)
 - [Problem Statement](#-problem-statement)
 - [Solution Architecture](#-solution-architecture)
 - [Key Features](#-key-features)
@@ -31,6 +39,18 @@
 - [Deployment](#-deployment)
 - [Docker Containerization](#-docker-containerization)
 - [Azure AD SSO Setup](#-azure-ad--microsoft-entra-id-sso-setup)
+
+---
+
+## 🌐 Live Demo
+
+| Service | URL |
+|---------|-----|
+| **Frontend (Vercel)** | [goal-flow-theta.vercel.app](https://goal-flow-theta.vercel.app) |
+| **Homepage** | [goal-flow-theta.vercel.app/](https://goal-flow-theta.vercel.app/) |
+| **Login** | [goal-flow-theta.vercel.app/login](https://goal-flow-theta.vercel.app/login) |
+
+> **Quick Start:** Visit the homepage → click a demo account button → auto-login to any role!
 
 ---
 
@@ -106,6 +126,9 @@ Organizations relying on manual or fragmented goal-tracking methods struggle wit
 | 6 | **Shared Goals** | Manager can push org-level KPIs to multiple employees |
 | 7 | **Cycle Override** | Admin can force-open any cycle for demo/testing |
 | 8 | **Premium Dark UI** | Glassmorphism, gradient animations, micro-interactions |
+| 9 | **Landing Page** | Stunning homepage with hero, features, testimonials, FAQ |
+| 10 | **Signup Flow** | Multi-step registration with password strength indicator |
+| 11 | **Docker Containerization** | Multi-stage builds, Node 22 Alpine, Nginx + health checks |
 
 ---
 
@@ -113,24 +136,53 @@ Organizations relying on manual or fragmented goal-tracking methods struggle wit
 
 | Layer | Technology | Purpose |
 |-------|-----------|---------|
-| **Frontend** | React 18 + TypeScript | Component-based UI |
-| **Bundler** | Vite 8 | Fast HMR dev server |
-| **Routing** | React Router v7 | Client-side navigation |
-| **Charts** | Recharts | Analytics visualizations |
+| **Frontend** | React 19 + TypeScript 6 | Component-based UI |
+| **Bundler** | Vite 8 + Rolldown | Lightning-fast builds |
+| **Routing** | React Router v7 | Client-side SPA navigation |
+| **Charts** | Recharts 3 | Analytics visualizations |
 | **HTTP Client** | Axios | API communication |
 | **SSO** | MSAL.js (@azure/msal-browser) | Azure AD OAuth2 popup login |
 | **Backend** | Express.js 4 | REST API server |
 | **ORM** | Prisma 6 | Type-safe database access |
-| **Database** | PostgreSQL (Supabase) | Cloud-hosted relational DB |
+| **Database** | PostgreSQL 16 (Supabase) | Cloud-hosted relational DB |
 | **Auth** | JWT + Microsoft Entra ID | Stateless auth + SSO |
 | **Hashing** | bcryptjs | Password security |
 | **Email** | SendGrid API | Transactional email notifications |
 | **Teams** | Incoming Webhooks | Adaptive card notifications |
+| **Containers** | Docker + docker-compose | Multi-stage production builds |
 | **Deployment** | Vercel + Railway | Frontend CDN + API hosting |
 
 ---
 
 ## 🔄 System Workflow
+
+### End-to-End User Journey
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                        GOALFLOW USER JOURNEY                           │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│  🌐 VISITOR                                                             │
+│  ├── Lands on Homepage (/) → sees features, stats, testimonials, FAQ    │
+│  ├── Clicks "Get Started Free" → Signup (/signup)                       │
+│  ├── Clicks "Try Demo" → Login (/login) with demo account pre-fill      │
+│  └── Clicks demo role button → auto-fills credentials on login page     │
+│                                                                         │
+│  📝 SIGNUP FLOW                                                         │
+│  ├── Enter name, email, department, password                            │
+│  ├── Password strength indicator validates in real-time                 │
+│  ├── Account created → success page with next steps                     │
+│  └── Redirects to Login                                                 │
+│                                                                         │
+│  🔐 LOGIN                                                               │
+│  ├── Email/Password login (JWT auth)                                    │
+│  ├── Microsoft SSO popup (Azure AD — auto-appears if configured)        │
+│  ├── Quick Demo Access: 4 pre-configured accounts                       │
+│  └── Redirects to role-appropriate dashboard                            │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
 
 ### Phase 1: Goal Setting (Admin opens cycle)
 
@@ -144,12 +196,14 @@ Employee creates Goal Sheet ──► Adds 1-8 goals (10-100% weight each)
          │                              │
          ▼                              ▼
 Employee submits ──────────────► Status: SUBMITTED
-         │
+         │                       📧 Email → Manager
+         │                       💬 Teams → Manager channel
          ▼
 Manager reviews ──┬──► Approve → Status: LOCKED ✅
-                  │
+                  │              📧 Email → Employee
+                  │              💬 Teams → notification
                   └──► Return (with reason) → Status: RETURNED 🔄
-                              │
+                              │              📧 Email → Employee
                               ▼
                     Employee edits & resubmits
 ```
@@ -160,36 +214,41 @@ Manager reviews ──┬──► Approve → Status: LOCKED ✅
 Admin opens Q1/Q2/Q3/Q4 cycle
          │
          ▼
-Employee logs actual achievements ──► Score auto-computed
+Employee logs actual achievements ──► Score auto-computed per UoM type
+         │                              ├── NUMERIC_MIN: actual/target
+         │                              ├── NUMERIC_MAX: target/actual
+         │                              ├── TIMELINE: date comparison
+         │                              └── ZERO: 0=100%, penalty per unit
+         ▼
+Manager reviews & adds comments ──► Check-in recorded with timestamp
          │
          ▼
-Manager reviews & adds comments ──► Check-in recorded
-         │
-         ▼
-Repeat for each quarter
+Weighted overall score = Σ (goal_score × goal_weightage) / 100
 ```
 
 ### Phase 3: Reporting & Analytics
 
 ```
-Admin views ──┬──► Achievement Report (Planned vs Actual)
-              ├──► Completion Dashboard (who's done, who's not)
-              ├──► QoQ Trend Charts
-              ├──► Department Heatmap
+Admin views ──┬──► Achievement Report (Planned vs Actual per employee)
+              ├──► Completion Dashboard (who's done, who's pending)
+              ├──► QoQ Trend Charts (line chart across quarters)
+              ├──► Department Heatmap (color-coded performance grid)
               ├──► Goal Distribution (by thrust area, UoM, status)
-              ├──► Manager Effectiveness (check-in rates)
-              └──► CSV Export for offline analysis
+              ├──► Manager Effectiveness (check-in completion rates)
+              └──► CSV Export for offline analysis / HR integration
 ```
 
 ### Escalation Flow
 
 ```
 Escalation rules fire automatically:
-  ├── Goal not submitted after 7 days → Notify EMPLOYEE
-  ├── Goal not submitted after 14 days → Notify MANAGER
-  ├── Goal not approved after 5 days → Notify MANAGER
-  ├── Goal not approved after 10 days → Notify ADMIN
-  └── Check-in not done after 7 days → Notify EMPLOYEE
+  ├── Goal not submitted after 7 days  → 📧 Notify EMPLOYEE
+  ├── Goal not submitted after 14 days → 📧 Notify MANAGER
+  ├── Goal not approved after 5 days   → 📧 Notify MANAGER
+  ├── Goal not approved after 10 days  → 📧 Notify ADMIN
+  └── Check-in not done after 7 days   → 📧 Notify EMPLOYEE
+
+Admin can view, acknowledge, and resolve escalation events.
 ```
 
 ---
@@ -293,10 +352,14 @@ GoalFlow/
 │   │   └── package.json
 │   │
 │   └── web/                    # React Frontend
+│       ├── public/
+│       │   ├── logo.png        # GoalFlow brand logo
+│       │   ├── favicon.svg     # Browser tab icon
+│       │   └── icons.svg       # Sprite icons
 │       ├── src/
 │       │   ├── main.tsx        # App entry
 │       │   ├── App.tsx         # Router + layout
-│       │   ├── index.css       # Design system
+│       │   ├── index.css       # Design system (487 lines)
 │       │   ├── lib/
 │       │   │   ├── api.ts      # Axios client
 │       │   │   └── msalConfig.ts # Azure AD MSAL configuration
@@ -304,20 +367,26 @@ GoalFlow/
 │       │   │   └── AuthContext.tsx # Auth state management
 │       │   ├── components/
 │       │   │   ├── Shared.tsx  # Badges, meters, modals
-│       │   │   └── Sidebar.tsx # Navigation sidebar
+│       │   │   └── Sidebar.tsx # Navigation sidebar + logo
 │       │   └── pages/
-│       │       ├── LoginPage.tsx
-│       │       ├── EmployeeGoalsPage.tsx
-│       │       ├── EmployeeCheckInPage.tsx
-│       │       ├── ManagerTeamPage.tsx
-│       │       ├── ManagerReviewPage.tsx
-│       │       ├── AdminDashboardPage.tsx
-│       │       ├── AdminUsersPage.tsx
-│       │       ├── AdminCyclesPage.tsx
-│       │       ├── AdminReportsPage.tsx
-│       │       ├── AdminAnalyticsPage.tsx
-│       │       ├── AdminAuditPage.tsx
-│       │       └── AdminEscalationsPage.tsx
+│       │       ├── HomePage.tsx           # 🏠 Public landing page
+│       │       ├── LoginPage.tsx          # 🔐 Login + SSO + demo access
+│       │       ├── SignupPage.tsx         # 📝 Registration flow
+│       │       ├── EmployeeGoalsPage.tsx  # 📋 Goal sheet management
+│       │       ├── EmployeeCheckInPage.tsx # ✅ Achievement logging
+│       │       ├── ManagerTeamPage.tsx    # 👥 Team oversight
+│       │       ├── ManagerReviewPage.tsx  # 📊 Sheet review + approval
+│       │       ├── AdminDashboardPage.tsx # 📊 Admin overview
+│       │       ├── AdminUsersPage.tsx     # 👤 User management
+│       │       ├── AdminCyclesPage.tsx    # 🔄 Cycle configuration
+│       │       ├── AdminReportsPage.tsx   # 📈 Reports + CSV export
+│       │       ├── AdminAnalyticsPage.tsx # 📉 Charts + heatmaps
+│       │       ├── AdminAuditPage.tsx     # 🔍 Audit trail viewer
+│       │       ├── AdminEscalationsPage.tsx # ⚠️ Escalation mgmt
+│       │       ├── AdminScoringDemoPage.tsx # 💯 Score calculator
+│       │       └── AdminNotificationsPage.tsx # 📧 Notification settings
+│       ├── Dockerfile          # Multi-stage: Node 22 → Nginx
+│       ├── nginx.conf          # SPA routing + API proxy
 │       └── package.json
 │
 ├── packages/
@@ -329,8 +398,10 @@ GoalFlow/
 │   ├── seed.ts                 # Demo data seeder
 │   └── migrations/             # SQL migrations
 │
+├── docker-compose.yml          # 3-container orchestration
 ├── .env                        # Environment variables
-└── package.json                # Workspace root
+├── .env.docker                 # Docker-specific env (gitignored)
+└── package.json                # Workspace root (3 workspaces)
 ```
 
 ---
@@ -339,9 +410,10 @@ GoalFlow/
 
 ### Prerequisites
 
-- **Node.js** ≥ 18
-- **npm** ≥ 9
+- **Node.js** ≥ 20.19 (recommended: 22 LTS)
+- **npm** ≥ 10
 - **PostgreSQL** (via Supabase or local)
+- **Docker** (optional, for containerized deployment)
 
 ### 1. Clone & Install
 
@@ -649,8 +721,8 @@ docker-compose exec goalflow-api npx prisma db seed
 
 | Container | Image | Port | Purpose |
 |-----------|-------|------|---------|
-| `goalflow-web` | Nginx + React build | 5173 | Frontend SPA |
-| `goalflow-api` | Node 18 Alpine | 4000 | Express REST API |
+| `goalflow-web` | Node 22 → Nginx Alpine | 5173 | Frontend SPA |
+| `goalflow-api` | Node 22 Alpine (multi-stage) | 4000 | Express REST API |
 | `goalflow-postgres` | PostgreSQL 16 Alpine | 5432 | Database |
 
 ---
@@ -765,5 +837,23 @@ Returns JWT token → user logged in
 
 ## 📄 License
 
-Built for **AtomQuest Hackathon 2026** by [Gurjas Gandhi](https://github.com/Gurjas2112).
+Built for **AtomQuest Hackathon 1.0 (2026)** by [Gurjas Gandhi](https://github.com/Gurjas2112).
 
+---
+
+## 🏆 Submission Summary
+
+| Deliverable | Status | Details |
+|-------------|--------|---------|
+| Live Demo | ✅ | [goal-flow-theta.vercel.app](https://goal-flow-theta.vercel.app) |
+| Source Code | ✅ | [GitHub](https://github.com/Gurjas2112/GoalFlow) |
+| Demo Credentials | ✅ | 4 accounts (Admin, Manager, 2 Employees) |
+| Homepage | ✅ | Hero, features, stats, testimonials, FAQ |
+| Signup Flow | ✅ | Registration with password strength |
+| Docker | ✅ | 3-container compose (Node 22 + Nginx + PG16) |
+| SSO | ✅ | Microsoft Entra ID (Azure AD) |
+| Notifications | ✅ | SendGrid email + Teams webhooks |
+| Analytics | ✅ | QoQ trends, heatmaps, distributions |
+| Audit Trail | ✅ | Complete change history |
+| Escalations | ✅ | Automated rule-based alerts |
+| Monthly Cost | ✅ | **$5/month** (Railway hobby) |
