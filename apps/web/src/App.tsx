@@ -15,6 +15,8 @@ import AdminReportsPage from './pages/AdminReportsPage';
 import AdminAuditPage from './pages/AdminAuditPage';
 import AdminEscalationsPage from './pages/AdminEscalationsPage';
 import AdminAnalyticsPage from './pages/AdminAnalyticsPage';
+import AdminScoringDemoPage from './pages/AdminScoringDemoPage';
+import AdminNotificationsPage from './pages/AdminNotificationsPage';
 
 function RoleRedirect() {
   const { user, loading } = useAuth();
@@ -45,6 +47,8 @@ function AppContent() {
           <Route path="/admin/audit" element={<PrivateRoute role="ADMIN"><AdminAuditPage /></PrivateRoute>} />
           <Route path="/admin/escalations" element={<PrivateRoute role="ADMIN"><AdminEscalationsPage /></PrivateRoute>} />
           <Route path="/admin/analytics" element={<PrivateRoute role="ADMIN"><AdminAnalyticsPage /></PrivateRoute>} />
+          <Route path="/admin/scoring-demo" element={<PrivateRoute role="ADMIN"><AdminScoringDemoPage /></PrivateRoute>} />
+          <Route path="/admin/notifications" element={<PrivateRoute role="ADMIN"><AdminNotificationsPage /></PrivateRoute>} />
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </main>

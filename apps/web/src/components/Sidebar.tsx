@@ -40,8 +40,11 @@ export default function Sidebar() {
             <div className="sidebar-section-title">Reports</div>
             <NavLink to="/admin/reports" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>📈 Reports</NavLink>
             <NavLink to="/admin/analytics" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>📉 Analytics</NavLink>
-            <NavLink to="/admin/audit" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>🔍 Audit Log</NavLink>
+            <NavLink to="/admin/scoring-demo" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>💯 Score Calculator</NavLink>
+            <div className="sidebar-section-title">Governance</div>
+            <NavLink to="/admin/notifications" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>📧 Notifications</NavLink>
             <NavLink to="/admin/escalations" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>⚠️ Escalations</NavLink>
+            <NavLink to="/admin/audit" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>🔍 Audit Log</NavLink>
           </>
         )}
       </nav>

@@ -593,6 +593,67 @@ Redirects to role-appropriate dashboard
 
 ---
 
+## 🐳 Docker Containerization
+
+### Quick Start (One Command)
+
+```bash
+# Clone and start with Docker
+git clone https://github.com/Gurjas2112/GoalFlow.git
+cd GoalFlow
+cp .env.docker .env
+
+# Build and start all 3 containers
+docker-compose up -d --build
+
+# Run database migrations + seed
+docker-compose exec goalflow-api npx prisma migrate deploy
+docker-compose exec goalflow-api npx prisma db seed
+```
+
+### Architecture
+
+```
+┌──────────────────────────────────────────────────────┐
+│  Docker Network: goalflow-network                    │
+│                                                      │
+│  ┌──────────────┐  ┌───────────────┐                │
+│  │ goalflow-web │  │ goalflow-api  │                │
+│  │ Nginx + React│  │ Express.js    │                │
+│  │ Port: 5173   │  │ Port: 4000    │                │
+│  └──────┬───────┘  └───────┬───────┘                │
+│         │                  │                         │
+│         └──────┬───────────┘                         │
+│                ▼                                     │
+│  ┌─────────────────────┐                             │
+│  │ goalflow-postgres   │                             │
+│  │ PostgreSQL 16       │                             │
+│  │ Port: 5432          │                             │
+│  └─────────────────────┘                             │
+└──────────────────────────────────────────────────────┘
+```
+
+### Commands
+
+| Command | Description |
+|---------|-------------|
+| `docker-compose up -d` | Start all services |
+| `docker-compose logs -f` | View live logs |
+| `docker-compose down` | Stop all services |
+| `docker-compose down -v` | Stop + delete data |
+| `docker-compose exec goalflow-api npx prisma studio` | Database GUI |
+
+### Services
+
+| Container | Image | Port | Purpose |
+|-----------|-------|------|---------|
+| `goalflow-web` | Nginx + React build | 5173 | Frontend SPA |
+| `goalflow-api` | Node 18 Alpine | 4000 | Express REST API |
+| `goalflow-postgres` | PostgreSQL 16 Alpine | 5432 | Database |
+
+---
+
 ## 📄 License
 
 Built for **AtomQuest Hackathon 2026** by [Gurjas Gandhi](https://github.com/Gurjas2112).
+

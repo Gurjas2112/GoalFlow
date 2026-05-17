@@ -1,0 +1,103 @@
+version: '3.8'
+
+services:
+  # =============================================
+  # PostgreSQL Database
+  # =============================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: goalflow-postgres
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres123}
+      POSTGRES_DB: ${DB_NAME:-goalflow}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --locale=C.UTF-8"
+    volumes:
+      - goalflow-db-volume:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/01-init.sql
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    networks:
+      - goalflow-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-goalflow}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # =============================================
+  # Express.js API Server
+  # =============================================
+  goalflow-api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: goalflow-api
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres123}@postgres:5432/${DB_NAME:-goalflow}?schema=public
+      DIRECT_URL: postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres123}@postgres:5432/${DB_NAME:-goalflow}
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: 4000
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
+      APP_BASE_URL: ${APP_BASE_URL:-http://localhost:5173}
+      JWT_SECRET: ${JWT_SECRET:-goalflow-docker-secret-change-in-prod}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
+      AZURE_CLIENT_ID: ${AZURE_CLIENT_ID:-}
+      AZURE_CLIENT_SECRET: ${AZURE_CLIENT_SECRET:-}
+      AZURE_TENANT_ID: ${AZURE_TENANT_ID:-}
+      AZURE_GROUP_ADMIN: ${AZURE_GROUP_ADMIN:-}
+      AZURE_GROUP_MANAGER: ${AZURE_GROUP_MANAGER:-}
+      AZURE_GROUP_EMPLOYEE: ${AZURE_GROUP_EMPLOYEE:-}
+      SENDGRID_API_KEY: ${SENDGRID_API_KEY:-}
+      SENDGRID_FROM_EMAIL: ${SENDGRID_FROM_EMAIL:-noreply@goalflow.demo}
+      TEAMS_WEBHOOK_URL: ${TEAMS_WEBHOOK_URL:-}
+    ports:
+      - "4000:4000"
+    networks:
+      - goalflow-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:4000/api/health"]
+      interval: 30s
+      timeout: 10s
+      start_period: 40s
+      retries: 3
+    restart: unless-stopped
+
+  # =============================================
+  # React.js Web Frontend
+  # =============================================
+  goalflow-web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:4000/api}
+        VITE_AZURE_CLIENT_ID: ${VITE_AZURE_CLIENT_ID:-}
+        VITE_AZURE_TENANT_ID: ${VITE_AZURE_TENANT_ID:-}
+        VITE_AZURE_REDIRECT_URI: ${VITE_AZURE_REDIRECT_URI:-http://localhost:5173}
+    container_name: goalflow-web
+    depends_on:
+      - goalflow-api
+    ports:
+      - "5173:80"
+    networks:
+      - goalflow-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/"]
+      interval: 30s
+      timeout: 10s
+      start_period: 15s
+      retries: 3
+    restart: unless-stopped
+
+volumes:
+  goalflow-db-volume:
+    driver: local
+
+networks:
+  goalflow-network:
+    driver: bridge
