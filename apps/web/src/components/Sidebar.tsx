@@ -14,8 +14,13 @@ export default function Sidebar() {
   return (
     <aside className="sidebar">
       <div className="sidebar-brand">
-        <h1>GoalFlow</h1>
-        <p>Goal Setting & Tracking</p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <img src="/logo.png" alt="GoalFlow" style={{ width: 32, height: 32, borderRadius: 10 }} />
+          <div>
+            <h1>GoalFlow</h1>
+            <p>Goal Setting & Tracking</p>
+          </div>
+        </div>
       </div>
       <nav className="sidebar-nav">
         {user.role === 'EMPLOYEE' && (

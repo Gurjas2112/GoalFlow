@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { msalInstance, loginRequest, isSSOConfigured } from '../lib/msalConfig';
@@ -11,6 +11,19 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
+
+  // Pre-fill demo user if coming from homepage demo buttons
+  useEffect(() => {
+    const demoUser = localStorage.getItem('demoUser');
+    if (demoUser) {
+      try {
+        const { email: de, password: dp } = JSON.parse(demoUser);
+        setEmail(de);
+        setPassword(dp);
+        localStorage.removeItem('demoUser');
+      } catch { /* ignore */ }
+    }
+  }, []);
 
   const doLogin = async (em: string, pw: string) => {
     setError('');
@@ -56,7 +69,7 @@ export default function LoginPage() {
 
       <div className="login-card">
         <div className="login-brand">
-          <div style={{ fontSize: '3rem', marginBottom: 8 }}>🎯</div>
+          <img src="/logo.png" alt="GoalFlow" style={{ width: 56, height: 56, borderRadius: 16, marginBottom: 8, boxShadow: '0 8px 30px rgba(99,102,241,0.3)' }} />
           <h1>GoalFlow</h1>
           <p>Goal Setting & Tracking Portal</p>
         </div>
@@ -136,6 +149,14 @@ export default function LoginPage() {
             ))}
           </div>
         </div>
+
+        <div style={{ marginTop: 16, textAlign: 'center' }}>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem' }}>
+            Don't have an account?{' '}
+            <button onClick={() => navigate('/signup')} style={{ color: 'var(--accent-hover)', fontWeight: 700, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--font)' }}>Sign up here</button>
+          </p>
+        </div>
+        <button onClick={() => navigate('/')} style={{ width: '100%', marginTop: 8, padding: 8, background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '0.82rem', fontFamily: 'var(--font)' }}>← Back to Home</button>
       </div>
     </div>
   );

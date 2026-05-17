@@ -3,7 +3,9 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { PrivateRoute } from './components/Shared';
 import Sidebar from './components/Sidebar';
+import HomePage from './pages/HomePage';
 import LoginPage from './pages/LoginPage';
+import SignupPage from './pages/SignupPage';
 import EmployeeGoalsPage from './pages/EmployeeGoalsPage';
 import EmployeeCheckInPage from './pages/EmployeeCheckInPage';
 import ManagerTeamPage from './pages/ManagerTeamPage';
@@ -34,8 +36,10 @@ function AppContent() {
       {user && <Sidebar />}
       <main className={user ? 'main-content' : ''}>
         <Routes>
+          <Route path="/" element={<HomePage />} />
           <Route path="/login" element={<LoginPage />} />
-          <Route path="/" element={<RoleRedirect />} />
+          <Route path="/signup" element={<SignupPage />} />
+          <Route path="/dashboard" element={<RoleRedirect />} />
           <Route path="/employee/goals" element={<PrivateRoute role="EMPLOYEE"><EmployeeGoalsPage /></PrivateRoute>} />
           <Route path="/employee/checkin" element={<PrivateRoute role="EMPLOYEE"><EmployeeCheckInPage /></PrivateRoute>} />
           <Route path="/manager/team" element={<PrivateRoute role="MANAGER"><ManagerTeamPage /></PrivateRoute>} />
