@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { api } from '../lib/api';
-import { CycleWindowBanner, ScoreDisplay, AchievementStatusBadge, UoMBadge } from '../components/Shared';
+import { CycleWindowBanner, ScoreDisplay, UoMBadge } from '../components/Shared';
 
 export default function EmployeeCheckInPage() {
   const [sheet, setSheet] = useState<any>(null);

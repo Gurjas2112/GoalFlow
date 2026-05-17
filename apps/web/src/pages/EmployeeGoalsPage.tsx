@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { api } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { GoalStatusBadge, WeightageMeter, UoMBadge, CycleWindowBanner, ConfirmModal } from '../components/Shared';
@@ -12,7 +12,7 @@ const UOM_TYPES = [
 ];
 
 export default function EmployeeGoalsPage() {
-  const { user } = useAuth();
+  const { user: _user } = useAuth();
   const [sheet, setSheet] = useState<any>(null);
   const [cycle, setCycle] = useState<any>(null);
   const [loading, setLoading] = useState(true);

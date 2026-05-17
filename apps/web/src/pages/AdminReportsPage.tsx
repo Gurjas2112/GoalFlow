@@ -1,22 +1,20 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { api } from '../lib/api';
 import { ScoreDisplay } from '../components/Shared';
 
 export default function AdminReportsPage() {
   const [report, setReport] = useState<any[]>([]);
   const [completion, setCompletion] = useState<any[]>([]);
-  const [cycles, setCycles] = useState<any[]>([]);
-  const [selectedCycle, setSelectedCycle] = useState('');
+  const [selectedCycle] = useState('');
   const [tab, setTab] = useState<'achievement' | 'completion'>('achievement');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     (async () => {
       try {
-        const [cyclesRes, reportRes, compRes] = await Promise.all([
+        const [, reportRes, compRes] = await Promise.all([
           api.get('/cycles'), api.get('/reports/achievement'), api.get('/reports/completion'),
         ]);
-        setCycles(cyclesRes.data);
         setReport(reportRes.data);
         setCompletion(compRes.data);
       } catch {}

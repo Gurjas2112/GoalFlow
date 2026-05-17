@@ -1,8 +1,9 @@
-import React from 'react';
+
+import { type ReactNode } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
-export function PrivateRoute({ children, role }: { children: React.ReactNode; role?: string }) {
+export function PrivateRoute({ children, role }: { children: ReactNode; role?: string }) {
   const { user, loading } = useAuth();
   if (loading) return <div className="loading-page"><div className="spinner" /></div>;
   if (!user) return <Navigate to="/login" />;
