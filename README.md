@@ -96,11 +96,14 @@ Organizations relying on manual or fragmented goal-tracking methods struggle wit
 
 | # | Feature | Description |
 |---|---------|-------------|
-| 1 | **Shared Goals** | Manager can push org-level KPIs to multiple employees |
-| 2 | **Escalation Engine** | Configurable rules for overdue goals/check-ins |
-| 3 | **Analytics Dashboard** | QoQ trends, department heatmap, goal distribution, manager effectiveness |
-| 4 | **Cycle Override** | Admin can force-open any cycle for demo/testing |
-| 5 | **Premium Dark UI** | Glassmorphism, gradient animations, micro-interactions |
+| 1 | **Microsoft Entra ID SSO** | Azure AD login via MSAL with auto-provisioning and group→role mapping |
+| 2 | **Email Notifications** | SendGrid-powered emails on goal submit, approve, and return events |
+| 3 | **Teams Integration** | Webhook adaptive cards with deep-link navigation to goal sheets |
+| 4 | **Escalation Engine** | Configurable rules for overdue goals/check-ins with resolution workflow |
+| 5 | **Analytics Dashboard** | QoQ trends, department heatmap, goal distribution, manager effectiveness |
+| 6 | **Shared Goals** | Manager can push org-level KPIs to multiple employees |
+| 7 | **Cycle Override** | Admin can force-open any cycle for demo/testing |
+| 8 | **Premium Dark UI** | Glassmorphism, gradient animations, micro-interactions |
 
 ---
 
@@ -113,12 +116,15 @@ Organizations relying on manual or fragmented goal-tracking methods struggle wit
 | **Routing** | React Router v7 | Client-side navigation |
 | **Charts** | Recharts | Analytics visualizations |
 | **HTTP Client** | Axios | API communication |
+| **SSO** | MSAL.js (@azure/msal-browser) | Azure AD OAuth2 popup login |
 | **Backend** | Express.js 4 | REST API server |
 | **ORM** | Prisma 6 | Type-safe database access |
 | **Database** | PostgreSQL (Supabase) | Cloud-hosted relational DB |
-| **Auth** | JWT (jsonwebtoken) | Stateless authentication |
+| **Auth** | JWT + Microsoft Entra ID | Stateless auth + SSO |
 | **Hashing** | bcryptjs | Password security |
-| **Deployment** | Vercel | Frontend hosting |
+| **Email** | SendGrid API | Transactional email notifications |
+| **Teams** | Incoming Webhooks | Adaptive card notifications |
+| **Deployment** | Vercel + Railway | Frontend CDN + API hosting |
 
 ---
 
@@ -266,8 +272,9 @@ GoalFlow/
 │   │   │   │   └── auth.ts     # JWT auth + RBAC middleware
 │   │   │   ├── routes/
 │   │   │   │   ├── auth.ts     # Login, /me
+│   │   │   │   ├── sso.ts      # Azure AD SSO endpoint
 │   │   │   │   ├── users.ts    # User CRUD, team listing
-│   │   │   │   ├── goalSheets.ts # Sheet lifecycle
+│   │   │   │   ├── goalSheets.ts # Sheet lifecycle + notifications
 │   │   │   │   ├── goals.ts    # Goal CRUD + shared goals
 │   │   │   │   ├── achievements.ts # Achievement tracking
 │   │   │   │   ├── checkIns.ts # Manager check-in comments
@@ -278,6 +285,7 @@ GoalFlow/
 │   │   │   │   └── analytics.ts # QoQ, heatmap, distribution
 │   │   │   └── utils/
 │   │   │       ├── audit.ts    # Audit log writer
+│   │   │       ├── notify.ts   # SendGrid + Teams webhooks
 │   │   │       └── scoreCompute.ts # Score computation engine
 │   │   ├── tsconfig.json
 │   │   └── package.json
@@ -288,7 +296,8 @@ GoalFlow/
 │       │   ├── App.tsx         # Router + layout
 │       │   ├── index.css       # Design system
 │       │   ├── lib/
-│       │   │   └── api.ts      # Axios client
+│       │   │   ├── api.ts      # Axios client
+│       │   │   └── msalConfig.ts # Azure AD MSAL configuration
 │       │   ├── context/
 │       │   │   └── AuthContext.tsx # Auth state management
 │       │   ├── components/
@@ -346,12 +355,33 @@ cd apps/web && npm install && cd ../..
 Create `.env` in the project root:
 
 ```env
+# Database (Supabase)
 DATABASE_URL="postgresql://user:password@host:6543/postgres?pgbouncer=true"
 DIRECT_URL="postgresql://user:password@host:5432/postgres"
+
+# Auth
 JWT_SECRET="your-secret-key"
 JWT_EXPIRES_IN="7d"
+
+# Server
 PORT=4000
 FRONTEND_URL="http://localhost:5173"
+APP_BASE_URL="http://localhost:5173"
+
+# Azure AD SSO (optional — SSO button auto-appears when configured)
+AZURE_CLIENT_ID="your-azure-app-client-id"
+AZURE_CLIENT_SECRET="your-azure-client-secret"
+AZURE_TENANT_ID="your-azure-tenant-id"
+AZURE_GROUP_ADMIN="object-id-of-GoalFlow-Admins-group"
+AZURE_GROUP_MANAGER="object-id-of-GoalFlow-Managers-group"
+AZURE_GROUP_EMPLOYEE="object-id-of-GoalFlow-Employees-group"
+
+# Email Notifications (optional)
+SENDGRID_API_KEY="your-sendgrid-api-key"
+SENDGRID_FROM_EMAIL="noreply@goalflow.demo"
+
+# Teams Notifications (optional)
+TEAMS_WEBHOOK_URL="your-teams-incoming-webhook-url"
 ```
 
 ### 3. Setup Database
@@ -387,11 +417,12 @@ Navigate to **http://localhost:5173** and use the quick-login buttons.
 
 ## 🔌 API Endpoints
 
-### Authentication
+### Authentication & SSO
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | POST | `/api/auth/login` | Login with email/password |
 | GET | `/api/auth/me` | Get current user |
+| POST | `/api/auth/sso` | Azure AD SSO login (auto-provisions users) |
 
 ### Goal Sheets
 | Method | Endpoint | Description |
@@ -400,9 +431,9 @@ Navigate to **http://localhost:5173** and use the quick-login buttons.
 | GET | `/api/goal-sheets/team` | Get team sheets (Manager/Admin) |
 | GET | `/api/goal-sheets/:id` | Get specific sheet |
 | POST | `/api/goal-sheets` | Create new sheet |
-| POST | `/api/goal-sheets/:id/submit` | Submit for approval |
-| POST | `/api/goal-sheets/:id/approve` | Approve & lock |
-| POST | `/api/goal-sheets/:id/return` | Return for rework |
+| POST | `/api/goal-sheets/:id/submit` | Submit for approval (📧 notifies manager) |
+| POST | `/api/goal-sheets/:id/approve` | Approve & lock (📧 notifies employee) |
+| POST | `/api/goal-sheets/:id/return` | Return for rework (📧 notifies employee) |
 | POST | `/api/goal-sheets/:id/unlock` | Admin unlock |
 
 ### Goals
@@ -448,9 +479,74 @@ Navigate to **http://localhost:5173** and use the quick-login buttons.
 
 ## 🌐 Deployment
 
-- **Frontend**: Deployed on [Vercel](https://goal-flow-theta.vercel.app)
-- **Database**: Supabase PostgreSQL (ap-south-1)
-- **API**: Express.js backend
+| Layer | Service | URL |
+|-------|---------|-----|
+| **Frontend** | Vercel | [goal-flow-theta.vercel.app](https://goal-flow-theta.vercel.app) |
+| **Database** | Supabase PostgreSQL | ap-south-1 (Mumbai) |
+| **API** | Railway / Express.js | Backend hosting |
+
+### Deployment Cost (Monthly)
+
+| Service | Plan | Cost |
+|---------|------|------|
+| Supabase | Free | $0 |
+| Vercel | Free | $0 |
+| Railway | Hobby | $5 |
+| Azure AD | Free | $0 |
+| SendGrid | Free (100 emails/day) | $0 |
+| GitHub | Free | $0 |
+| **Total** | | **$5/month** |
+
+---
+
+## 🔐 Microsoft Entra ID (Azure AD) SSO Setup
+
+1. **Create App Registration** at [portal.azure.com](https://portal.azure.com) → Microsoft Entra ID → App registrations
+2. Set redirect URI: `http://localhost:5173` (dev) + your Vercel URL (prod)
+3. Add API permissions: `User.Read`, `User.ReadBasic.All`, `Directory.Read.All`
+4. Create 3 security groups: `GoalFlow-Admins`, `GoalFlow-Managers`, `GoalFlow-Employees`
+5. Enable group claims in Token configuration
+6. Add env vars (`AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, group Object IDs) to your API
+7. Add `VITE_AZURE_CLIENT_ID` and `VITE_AZURE_TENANT_ID` to Vercel
+8. The **"Sign in with Microsoft"** button auto-appears on the login page
+
+### SSO Flow
+```
+User clicks "Sign in with Microsoft"
+        │
+        ▼
+MSAL popup → Microsoft login
+        │
+        ▼
+Access token sent to /api/auth/sso
+        │
+        ▼
+Backend validates → maps groups to roles
+        │
+        ▼
+User auto-provisioned if new → JWT issued
+        │
+        ▼
+Redirects to role-appropriate dashboard
+```
+
+---
+
+## 📧 Email & Teams Notifications
+
+### Events that trigger notifications:
+
+| Event | Email (SendGrid) | Teams (Webhook) | Recipient |
+|-------|:-:|:-:|---|
+| Goal sheet submitted | ✅ | ✅ | Manager |
+| Goal sheet approved | ✅ | ✅ | Employee |
+| Goal sheet returned | ✅ | ✅ | Employee |
+| Check-in reminder | ✅ | — | Employee |
+
+### Setup:
+- **Email**: Add `SENDGRID_API_KEY` to API environment
+- **Teams**: Create Incoming Webhook in Teams channel → add URL as `TEAMS_WEBHOOK_URL`
+- Notifications are fire-and-forget (non-blocking) — app works without them configured
 
 ---
 
