@@ -211,12 +211,29 @@ router.post('/:id/submit', requireAuth, async (req: AuthRequest, res: Response) 
     }
     const total = goals.reduce((s, g) => s + g.weightage, 0);
     if (total !== 100) {
-      res.status(400).json({ error: `Total weightage must equal 100%. Current: ${total}%` });
+      res.status(400).json({
+        error: 'Weightage validation failed',
+        details: {
+          current: total,
+          required: 100,
+          difference: 100 - total,
+          message: `Total weightage is ${total}%, must equal exactly 100%. ${total < 100 ? `Add ${100 - total}% more weightage.` : `Remove ${total - 100}% of weightage.`}`,
+          goals: goals.map(g => ({ id: g.id, title: g.title, weightage: g.weightage })),
+        },
+      });
       return;
     }
     const underMin = goals.filter((g) => g.weightage < 10);
     if (underMin.length > 0) {
-      res.status(400).json({ error: 'Each goal must have at least 10% weightage' });
+      res.status(400).json({
+        error: 'Weightage validation failed',
+        details: {
+          count: underMin.length,
+          minRequired: 10,
+          message: `${underMin.length} goal(s) have less than 10% weightage. Minimum is 10% per goal.`,
+          failingGoals: underMin.map(g => ({ id: g.id, title: g.title, weightage: g.weightage })),
+        },
+      });
       return;
     }
 

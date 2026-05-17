@@ -18,6 +18,8 @@ import auditRouter from './routes/audit';
 import escalationsRouter from './routes/escalations';
 import analyticsRouter from './routes/analytics';
 import ssoRouter from './routes/sso';
+import notificationsRouter from './routes/notifications';
+import { startEscalationJob } from './jobs/escalationTrigger';
 
 const app = express();
 app.use(cors({ origin: process.env.FRONTEND_URL || 'http://localhost:5173' }));
@@ -30,6 +32,7 @@ app.get('/api/health', (req, res) => {
 
 // Routes
 app.use('/api/auth', authRouter);
+app.use('/api/auth', ssoRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/goal-sheets', goalSheetsRouter);
 app.use('/api/goals', goalsRouter);
@@ -40,11 +43,15 @@ app.use('/api/reports', reportsRouter);
 app.use('/api/audit', auditRouter);
 app.use('/api/escalations', escalationsRouter);
 app.use('/api/analytics', analyticsRouter);
-app.use('/api/auth', ssoRouter);
+app.use('/api/notifications', notificationsRouter);
 
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {
   console.log(`✅ GoalFlow API running on port ${PORT}`);
+
+  // Start escalation trigger job (runs every 60 minutes)
+  startEscalationJob();
 });
 
 export default app;
+

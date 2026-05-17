@@ -44,6 +44,25 @@ router.post('/', requireAuth, requireRole('ADMIN'), async (req: AuthRequest, res
       return;
     }
 
+    // Check for overlapping cycles
+    const overlapping = await prisma.goalCycle.findFirst({
+      where: {
+        OR: [
+          { openDate: { lte: new Date(closeDate) }, closeDate: { gte: new Date(openDate) } },
+        ],
+      },
+    });
+    if (overlapping) {
+      res.status(400).json({
+        error: 'Cycle dates overlap with existing cycle',
+        details: {
+          conflictingCycle: `${overlapping.phase} ${overlapping.year}`,
+          conflictingDates: `${overlapping.openDate.toISOString().split('T')[0]} to ${overlapping.closeDate.toISOString().split('T')[0]}`,
+        },
+      });
+      return;
+    }
+
     const cycle = await prisma.goalCycle.create({
       data: {
         phase,

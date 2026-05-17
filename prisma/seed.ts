@@ -319,13 +319,129 @@ async function main() {
     },
   });
 
+  await prisma.auditLog.create({
+    data: {
+      userId: emp1.id,
+      goalSheetId: sheet1.id,
+      action: 'GOAL_SHEET_SUBMITTED',
+    },
+  });
+
+  // Create a SUBMITTED sheet for salesEmp (manager can demo approve flow)
+  const salesSheet = await prisma.goalSheet.create({
+    data: {
+      userId: salesEmp.id,
+      cycleId: goalSettingCycle.id,
+      status: 'SUBMITTED',
+      submittedAt: new Date('2026-05-15'),
+    },
+  });
+
+  await prisma.goal.createMany({
+    data: [
+      {
+        goalSheetId: salesSheet.id,
+        thrustArea: 'Revenue',
+        title: 'New client acquisition',
+        description: 'Sign 10 new enterprise contracts in Q1',
+        uomType: 'NUMERIC_MIN',
+        target: 10,
+        weightage: 35,
+      },
+      {
+        goalSheetId: salesSheet.id,
+        thrustArea: 'Customer Satisfaction',
+        title: 'Client retention rate',
+        description: 'Maintain 95%+ client retention rate',
+        uomType: 'NUMERIC_MIN',
+        target: 95,
+        weightage: 25,
+      },
+      {
+        goalSheetId: salesSheet.id,
+        thrustArea: 'Efficiency',
+        title: 'Reduce sales cycle time',
+        description: 'Average deal closure within 30 days',
+        uomType: 'NUMERIC_MAX',
+        target: 30,
+        weightage: 20,
+      },
+      {
+        goalSheetId: salesSheet.id,
+        thrustArea: 'Innovation',
+        title: 'Launch partner program',
+        description: 'Design and launch channel partner program by Aug 31',
+        uomType: 'TIMELINE',
+        target: 0,
+        deadline: new Date('2026-08-31'),
+        weightage: 20,
+      },
+    ],
+  });
+
+  // Create Q2 achievements for emp1 (shows QoQ trend in analytics)
+  await prisma.achievement.create({
+    data: {
+      goalId: goal1.id,
+      cycleId: q2Cycle.id,
+      actual: 920000,
+      status: 'ON_TRACK',
+      score: 0.92,
+    },
+  });
+
+  await prisma.achievement.create({
+    data: {
+      goalId: goal2.id,
+      cycleId: q2Cycle.id,
+      actual: 22,
+      status: 'COMPLETED',
+      score: 1.0,
+    },
+  });
+
+  await prisma.achievement.create({
+    data: {
+      goalId: goal4.id,
+      cycleId: q1Cycle.id,
+      actual: 1,
+      status: 'ON_TRACK',
+      score: 0.8,
+    },
+  });
+
+  // Create sample escalation events for demo
+  await prisma.escalation.create({
+    data: {
+      userId: emp2.id,
+      reason: 'GOAL_NOT_SUBMITTED_7D',
+      status: 'OPEN',
+    },
+  });
+
+  await prisma.escalation.create({
+    data: {
+      userId: manager.id,
+      reason: 'GOAL_NOT_APPROVED_5D',
+      status: 'RESOLVED',
+      resolvedAt: new Date('2026-05-12'),
+    },
+  });
+
   console.log('✅ Seed complete!');
   console.log('');
-  console.log('Demo credentials:');
-  console.log('  Admin:    admin@goalflow.demo / Admin@123');
-  console.log('  Manager:  manager@goalflow.demo / Manager@123');
-  console.log('  Employee: emp1@goalflow.demo / Emp@123');
-  console.log('  Employee: emp2@goalflow.demo / Emp@123');
+  console.log('📋 Demo credentials:');
+  console.log('  Admin:       admin@goalflow.demo / Admin@123');
+  console.log('  Manager:     manager@goalflow.demo / Manager@123');
+  console.log('  Sales Mgr:   salesmgr@goalflow.demo / Manager@123');
+  console.log('  Employee 1:  emp1@goalflow.demo / Emp@123  (LOCKED sheet — check-in ready)');
+  console.log('  Employee 2:  emp2@goalflow.demo / Emp@123  (DRAFT sheet — creation demo)');
+  console.log('  Sales Emp:   sales1@goalflow.demo / Emp@123 (SUBMITTED — approval demo)');
+  console.log('');
+  console.log('🎯 Demo flow:');
+  console.log('  1. Login as emp1 → See locked goals + achievements');
+  console.log('  2. Login as manager → See team + approve salesEmp sheet');
+  console.log('  3. Login as admin → Analytics + escalations + audit log');
 }
 
 main()

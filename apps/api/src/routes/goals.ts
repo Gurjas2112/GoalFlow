@@ -41,6 +41,15 @@ router.post('/', requireAuth, async (req: AuthRequest, res: Response) => {
       return;
     }
 
+    // Validate: TIMELINE requires a deadline
+    if (uomType === 'TIMELINE' && !deadline) {
+      res.status(400).json({
+        error: 'Deadline required for TIMELINE goals',
+        message: 'When UoM type is TIMELINE, a deadline date must be provided.',
+      });
+      return;
+    }
+
     const goal = await prisma.goal.create({
       data: {
         goalSheetId,
@@ -176,6 +185,16 @@ router.delete('/:id', requireAuth, async (req: AuthRequest, res: Response) => {
       res.status(403).json({ error: 'Forbidden' });
       return;
     }
+
+    // Audit the deletion
+    await writeAudit({
+      userId: req.user!.id,
+      goalId: goal.id,
+      goalSheetId: goal.goalSheet.id,
+      action: 'GOAL_DELETED',
+      fieldName: 'title',
+      oldValue: goal.title,
+    });
 
     await prisma.goal.delete({ where: { id: req.params.id } });
     res.json({ success: true });
