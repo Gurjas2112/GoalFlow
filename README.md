@@ -460,6 +460,14 @@ AZURE_GROUP_EMPLOYEE="object-id-of-GoalFlow-Employees-group"
 AZURE_ADMIN_EMAILS="alice@corp.com,bob@corp.com"
 AZURE_MANAGER_EMAILS="carol@corp.com,dave@corp.com"
 
+# Provisioning gate (STRONGLY recommended in production)
+# Without this, ANY Microsoft account that completes the Azure popup gets
+# auto-provisioned as EMPLOYEE. Set at least one of these to lock SSO down:
+AZURE_ALLOWED_DOMAINS="corp.com,subsidiary.com"   # email domains permitted
+AZURE_EMPLOYEE_EMAILS="eve@gmail.com"             # explicit per-email allowlist
+# (admin/manager allowlists above also act as their own allowlist;
+#  users an admin pre-created in the DB are always allowed.)
+
 # Optional bootstrap: a single email that is always promoted to ADMIN on SSO
 ADMIN_OVERRIDE_EMAIL="you@corp.com"
 
@@ -833,6 +841,39 @@ Subsequent logins → re-syncs role (promotions/demotions take effect),
     ↓
 Returns JWT token → user redirected to role-appropriate dashboard
 ```
+
+### Locking SSO down to known users (production)
+
+The Azure popup will happily accept **any** Microsoft account (work, school,
+or personal). Without a gate, every unknown email would be auto-provisioned
+as `EMPLOYEE`. Configure at least one of these env vars to refuse random
+sign-ins:
+
+| Variable | Effect |
+|---|---|
+| `AZURE_ALLOWED_DOMAINS` | Comma-separated list of email domains (e.g. `corp.com,subsidiary.com`) that may auto-provision. |
+| `AZURE_EMPLOYEE_EMAILS` | Comma-separated explicit allowlist of emails permitted as EMPLOYEE. |
+| `AZURE_GROUP_EMPLOYEE` | Azure AD group object id whose members are permitted as EMPLOYEE. |
+
+When any of the above is set, the API enforces the following rule on
+`POST /api/auth/sso` **before** creating a new user:
+
+```
+allow = user already exists in DB
+     || email matches admin/manager allowlist or group
+     || email domain ∈ AZURE_ALLOWED_DOMAINS
+     || email ∈ AZURE_EMPLOYEE_EMAILS
+     || user in AZURE_GROUP_EMPLOYEE
+```
+
+Otherwise the backend returns **HTTP 403** with the message *"Your Microsoft
+account is not authorized to access GoalFlow. Please contact your
+administrator."* The Login and Signup pages surface this message verbatim.
+
+> Tip: admins can also pre-create the local user row from **Admin → Users**.
+> Once the row exists, the same person can complete SSO without being in
+> any allowlist — Azure simply binds its `oid` to that account on first
+> sign-in.
 
 ### Validating SSO accounts from the Admin dashboard
 

@@ -95,8 +95,8 @@ export default function SignupPage() {
         role === 'ADMIN' ? '/admin/dashboard' :
         role === 'MANAGER' ? '/manager/team' : '/employee/goals';
     } catch (err: unknown) {
-      const e = err as { message?: string };
-      setError(e.message || 'Microsoft signup failed');
+      const e = err as { message?: string; response?: { data?: { message?: string; error?: string } } };
+      setError(e.response?.data?.message || e.response?.data?.error || e.message || 'Microsoft signup failed');
     } finally {
       setLoading(false);
     }

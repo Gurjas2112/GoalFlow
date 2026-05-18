@@ -111,7 +111,10 @@ export default function LoginPage() {
                   localStorage.setItem('goalflow_token', res.data.token);
                   localStorage.setItem('goalflow_user', JSON.stringify(res.data.user));
                   window.location.href = res.data.user.role === 'ADMIN' ? '/admin/dashboard' : res.data.user.role === 'MANAGER' ? '/manager/team' : '/employee/goals';
-                } catch (err: any) { setError(err.message || 'SSO login failed'); }
+                } catch (err: any) {
+                  const msg = err?.response?.data?.message || err?.response?.data?.error || err?.message || 'SSO login failed';
+                  setError(msg);
+                }
                 setLoading(false);
               }}
               style={{

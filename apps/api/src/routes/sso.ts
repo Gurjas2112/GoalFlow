@@ -53,11 +53,60 @@ router.post('/sso', async (req: any, res: Response) => {
       return 'EMPLOYEE';
     };
 
+    // ── Provisioning gate ────────────────────────────────────────────────
+    // In production, Azure AD popups will accept ANY Microsoft account
+    // (including personal outlook.com / hotmail.com / random tenants).
+    // Without a gate, every such user would be auto-provisioned as EMPLOYEE.
+    //
+    // Allow auto-provisioning only when at least ONE of the following holds:
+    //   1. The email is already promoted via admin/manager allowlists or groups
+    //      (those env vars act as their own allowlist).
+    //   2. The email domain is in AZURE_ALLOWED_DOMAINS (e.g. "corp.com").
+    //   3. The email is in AZURE_EMPLOYEE_EMAILS (explicit allowlist).
+    //   4. A local user row already exists (admin pre-created the account).
+    //   5. No gate env vars are configured at all (back-compat — open mode).
+    //
+    // Otherwise: 403 — the user is told to contact an administrator.
+    const allowedDomains = (process.env.AZURE_ALLOWED_DOMAINS || '')
+      .split(',').map(s => s.trim().toLowerCase().replace(/^@/, '')).filter(Boolean);
+    const employeeEmails = (process.env.AZURE_EMPLOYEE_EMAILS || '')
+      .split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+    const employeeGroup = process.env.AZURE_GROUP_EMPLOYEE;
+
+    const gateConfigured = allowedDomains.length > 0
+      || employeeEmails.length > 0
+      || !!employeeGroup;
+
+    const emailDomain = email.split('@')[1] || '';
+    const promotedByAllowlist =
+      (adminOverride && email === adminOverride) ||
+      (adminGroup && groups.includes(adminGroup)) ||
+      adminEmails.includes(email) ||
+      (managerGroup && groups.includes(managerGroup)) ||
+      managerEmails.includes(email);
+
+    const passesEmployeeGate =
+      promotedByAllowlist ||
+      (employeeGroup && groups.includes(employeeGroup)) ||
+      allowedDomains.includes(emailDomain) ||
+      employeeEmails.includes(email);
+
     // Find or create user
     let user = await prisma.user.findUnique({
       where: { email },
       include: { department: true },
     });
+
+    // Reject random external accounts BEFORE auto-provisioning.
+    if (!user && gateConfigured && !passesEmployeeGate) {
+      res.status(403).json({
+        error: 'Not authorized',
+        message:
+          'Your Microsoft account is not authorized to access GoalFlow. ' +
+          'Please contact your administrator to be added to the allowed users.',
+      });
+      return;
+    }
 
     if (!user) {
       // Auto-provision from Azure AD
