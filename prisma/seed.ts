@@ -63,6 +63,44 @@ async function main() {
     });
   }
 
+  // ── Quarterly check-in windows (per BRD §2.3) ──────────────────────
+  // Phase 1   — 1 May  → 30 Jun  (year N)
+  // Q1        — 1 Jul  → 30 Sep  (year N)
+  // Q2        — 1 Oct  → 31 Dec  (year N)
+  // Q3        — 1 Jan  → 28 Feb  (year N+1)
+  // Q4/Annual — 1 Mar  → 30 Apr  (year N+1)
+  //
+  // These are seeded without isOverride so they auto-activate by date.
+  // Admins can still flip an override on any one of them via the Cycles page.
+  const quarterlyWindows: Array<{
+    phase: 'Q1' | 'Q2' | 'Q3' | 'Q4';
+    year: number;
+    openDate: Date;
+    closeDate: Date;
+  }> = [
+    { phase: 'Q1', year,     openDate: new Date(year, 6, 1),  closeDate: new Date(year, 8, 30) },   // Jul–Sep
+    { phase: 'Q2', year,     openDate: new Date(year, 9, 1),  closeDate: new Date(year, 11, 31) },  // Oct–Dec
+    { phase: 'Q3', year: year + 1, openDate: new Date(year + 1, 0, 1), closeDate: new Date(year + 1, 1, 28) },   // Jan–Feb (next FY)
+    { phase: 'Q4', year: year + 1, openDate: new Date(year + 1, 2, 1), closeDate: new Date(year + 1, 3, 30) },   // Mar–Apr (next FY)
+  ];
+
+  for (const w of quarterlyWindows) {
+    const existing = await prisma.goalCycle.findFirst({
+      where: { phase: w.phase, year: w.year },
+    });
+    if (!existing) {
+      await prisma.goalCycle.create({
+        data: {
+          phase: w.phase,
+          year: w.year,
+          openDate: w.openDate,
+          closeDate: w.closeDate,
+          isOverride: false,
+        },
+      });
+    }
+  }
+
   // ── Escalation rules ───────────────────────────────────────────────
   const existingRules = await prisma.escalationRule.count();
   if (existingRules === 0) {
