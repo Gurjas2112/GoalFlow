@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import prisma from '../prisma';
 import { AuthRequest, requireAuth, requireRole } from '../middleware/auth';
 import { notifyAccountCreated } from '../utils/notify';
+import { syncAzureADUsers } from '../services/azureSync';
 
 const router = Router();
 
@@ -153,6 +154,24 @@ router.get('/departments', requireAuth, async (req: AuthRequest, res: Response) 
     res.json(departments);
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch departments' });
+  }
+});
+
+// POST /api/users/sync/azure — Admin: Sync users from Azure AD
+router.post('/sync/azure', requireAuth, requireRole('ADMIN'), async (req: AuthRequest, res: Response) => {
+  try {
+    const result = await syncAzureADUsers();
+    res.json({
+      success: true,
+      message: `Synced ${result.synced} new users from ${result.total} total Azure AD users`,
+      ...result,
+    });
+  } catch (err) {
+    console.error('Azure sync error:', err);
+    res.status(500).json({
+      error: 'Failed to sync Azure AD users',
+      details: err instanceof Error ? err.message : 'Unknown error',
+    });
   }
 });
 

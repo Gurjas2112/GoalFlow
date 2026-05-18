@@ -20,6 +20,7 @@ import analyticsRouter from './routes/analytics';
 import ssoRouter from './routes/sso';
 import notificationsRouter from './routes/notifications';
 import { startEscalationJob } from './jobs/escalationTrigger';
+import { syncAzureADUsers } from './services/azureSync';
 
 const app = express();
 app.use(cors({ origin: process.env.FRONTEND_URL || 'http://localhost:5173' }));
@@ -51,6 +52,12 @@ app.listen(PORT, () => {
 
   // Start escalation trigger job (runs every 60 minutes)
   startEscalationJob();
+
+  // Auto-sync Azure AD users on startup
+  syncAzureADUsers().catch((err) => {
+    console.error('⚠️ Azure AD sync on startup failed:', err);
+    console.log('💡 You can manually sync using: POST /api/users/sync/azure');
+  });
 });
 
 export default app;
