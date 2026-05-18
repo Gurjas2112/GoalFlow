@@ -23,6 +23,33 @@ router.post('/sso', async (req: any, res: Response) => {
     const email = String(rawEmail).trim().toLowerCase();
     const name = profile.displayName || email.split('@')[0];
 
+    // ── Resolve role from Azure AD groups OR email allowlists ────────────
+    // Two ways to map an SSO user to MANAGER / ADMIN:
+    //  1. Azure AD security groups (recommended for production):
+    //       AZURE_GROUP_ADMIN=<group-object-id>
+    //       AZURE_GROUP_MANAGER=<group-object-id>
+    //  2. Comma-separated email allowlists (works with personal MS accounts):
+    //       AZURE_ADMIN_EMAILS=alice@corp.com,bob@corp.com
+    //       AZURE_MANAGER_EMAILS=carol@corp.com,dave@corp.com
+    //  Anything not matched defaults to EMPLOYEE.
+    const groups: string[] = profile.groups || [];
+    const adminGroup = process.env.AZURE_GROUP_ADMIN;
+    const managerGroup = process.env.AZURE_GROUP_MANAGER;
+    const adminEmails = (process.env.AZURE_ADMIN_EMAILS || '')
+      .split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+    const managerEmails = (process.env.AZURE_MANAGER_EMAILS || '')
+      .split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+    const adminOverride = (process.env.ADMIN_OVERRIDE_EMAIL || '').toLowerCase();
+
+    const resolveRole = (): 'ADMIN' | 'MANAGER' | 'EMPLOYEE' => {
+      if (adminOverride && email === adminOverride) return 'ADMIN';
+      if (adminGroup && groups.includes(adminGroup)) return 'ADMIN';
+      if (adminEmails.includes(email)) return 'ADMIN';
+      if (managerGroup && groups.includes(managerGroup)) return 'MANAGER';
+      if (managerEmails.includes(email)) return 'MANAGER';
+      return 'EMPLOYEE';
+    };
+
     // Find or create user
     let user = await prisma.user.findUnique({
       where: { email },
@@ -31,19 +58,7 @@ router.post('/sso', async (req: any, res: Response) => {
 
     if (!user) {
       // Auto-provision from Azure AD
-      const groups: string[] = profile.groups || [];
-      let role: 'ADMIN' | 'MANAGER' | 'EMPLOYEE' = 'EMPLOYEE';
-
-      const adminGroup = process.env.AZURE_GROUP_ADMIN;
-      const managerGroup = process.env.AZURE_GROUP_MANAGER;
-
-      if (adminGroup && groups.includes(adminGroup)) role = 'ADMIN';
-      else if (managerGroup && groups.includes(managerGroup)) role = 'MANAGER';
-
-      const adminOverride = (process.env.ADMIN_OVERRIDE_EMAIL || '').toLowerCase();
-      if (adminOverride && email === adminOverride) {
-        role = 'ADMIN';
-      }
+      const role = resolveRole();
 
       // Find manager from Azure AD (if available)
       let managerId: string | undefined;
@@ -63,6 +78,18 @@ router.post('/sso', async (req: any, res: Response) => {
         },
         include: { department: true },
       });
+    } else {
+      // Re-sync role for existing SSO users so newly-added group/allowlist
+      // entries take effect on the next login (admins can promote in Azure
+      // without manually editing the local DB).
+      const desiredRole = resolveRole();
+      if (desiredRole !== user.role) {
+        user = await prisma.user.update({
+          where: { id: user.id },
+          data: { role: desiredRole },
+          include: { department: true },
+        });
+      }
     }
 
     const token = jwt.sign(
