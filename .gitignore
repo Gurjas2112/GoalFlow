@@ -7,3 +7,6 @@ test-webhook.bat
 test-teams.ps1
 *.log
 .DS_Store
+
+.vercel
+.env*.local
