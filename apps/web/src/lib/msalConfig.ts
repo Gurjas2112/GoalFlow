@@ -20,7 +20,10 @@ const msalConfig: Configuration = {
 export const msalInstance = new PublicClientApplication(msalConfig);
 
 export const loginRequest = {
-  scopes: ['User.Read', 'User.ReadBasic.All'],
+  // Use only scopes that work for BOTH work/school AAD accounts AND personal
+  // Microsoft accounts (live.com / outlook.com / gmail-linked MSAs).
+  // 'User.ReadBasic.All' is an organization-only scope and breaks personal logins.
+  scopes: ['openid', 'profile', 'email', 'User.Read'],
 };
 
 export const isSSOConfigured = () =>

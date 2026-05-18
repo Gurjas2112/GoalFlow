@@ -32,6 +32,10 @@ export default function LoginPage() {
       await login(em, pw);
       const stored = localStorage.getItem('goalflow_user');
       const user = stored ? JSON.parse(stored) : null;
+      if (user?.mustChangePassword) {
+        navigate('/change-password');
+        return;
+      }
       if (user?.role === 'ADMIN') navigate('/admin/dashboard');
       else if (user?.role === 'MANAGER') navigate('/manager/team');
       else navigate('/employee/goals');

@@ -17,8 +17,9 @@ router.get('/', requireAuth, requireRole('ADMIN'), async (req: AuthRequest, res:
       },
       orderBy: { name: 'asc' },
     });
+    type UserRow = typeof users[number];
     res.json(
-      users.map((u) => ({
+      users.map((u: UserRow) => ({
         id: u.id,
         name: u.name,
         email: u.email,
@@ -42,7 +43,8 @@ router.get('/team', requireAuth, requireRole('MANAGER'), async (req: AuthRequest
       include: { department: true },
       orderBy: { name: 'asc' },
     });
-    res.json(reports.map((u) => ({
+    type ReportRow = typeof reports[number];
+    res.json(reports.map((u: ReportRow) => ({
       id: u.id,
       name: u.name,
       email: u.email,
@@ -82,7 +84,13 @@ router.post('/', requireAuth, requireRole('ADMIN'), async (req: AuthRequest, res
       return;
     }
 
-    const existing = await prisma.user.findUnique({ where: { email } });
+    const normalizedEmail = String(email).trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+      res.status(400).json({ error: 'Invalid email format' });
+      return;
+    }
+
+    const existing = await prisma.user.findUnique({ where: { email: normalizedEmail } });
     if (existing) {
       res.status(409).json({ error: 'Email already exists' });
       return;
@@ -95,9 +103,10 @@ router.post('/', requireAuth, requireRole('ADMIN'), async (req: AuthRequest, res
     const user = await prisma.user.create({
       data: {
         name,
-        email,
+        email: normalizedEmail,
         passwordHash,
         role,
+        mustChangePassword: true,
         // Empty strings from the admin form would violate FK constraints — normalize to null
         departmentId: departmentId || null,
         managerId: managerId || null,
@@ -174,9 +183,9 @@ router.post('/sync/azure', requireAuth, requireRole('ADMIN'), async (req: AuthRe
   try {
     const result = await syncAzureADUsers();
     res.json({
+      ...result,
       success: true,
       message: `Synced ${result.synced} new users from ${result.total} total Azure AD users`,
-      ...result,
     });
   } catch (err) {
     console.error('Azure sync error:', err);

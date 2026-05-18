@@ -9,6 +9,7 @@ interface User {
   departmentId?: string;
   managerId?: string;
   department?: { id: string; name: string };
+  mustChangePassword?: boolean;
 }
 
 interface AuthContextType {
@@ -18,6 +19,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
   isRole: (role: string) => boolean;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -27,30 +29,37 @@ const AuthContext = createContext<AuthContextType>({
   login: async () => {},
   logout: () => {},
   isRole: () => false,
+  refreshUser: async () => {},
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  // Lazy initializer reads the saved token once during the first render
+  // (avoids calling setState() synchronously inside an effect).
+  const [token, setToken] = useState<string | null>(
+    () => (typeof window !== 'undefined' ? localStorage.getItem('goalflow_token') : null),
+  );
+  const [loading, setLoading] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    return !!localStorage.getItem('goalflow_token');
+  });
 
   useEffect(() => {
-    const savedToken = localStorage.getItem('goalflow_token');
-    if (savedToken) {
-      setToken(savedToken);
-      api
-        .get('/auth/me')
-        .then((res) => {
-          setUser(res.data);
-        })
-        .catch(() => {
-          localStorage.removeItem('goalflow_token');
-          localStorage.removeItem('goalflow_user');
-        })
-        .finally(() => setLoading(false));
-    } else {
-      setLoading(false);
-    }
+    if (!token) return;
+    api
+      .get('/auth/me')
+      .then((res) => {
+        setUser(res.data);
+      })
+      .catch(() => {
+        localStorage.removeItem('goalflow_token');
+        localStorage.removeItem('goalflow_user');
+        setToken(null);
+      })
+      .finally(() => setLoading(false));
+    // We intentionally only react to token changes from login/logout below;
+    // initial token comes from the lazy initializer above.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const login = async (email: string, password: string) => {
@@ -71,13 +80,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const isRole = (role: string) => user?.role === role;
 
+  const refreshUser = async () => {
+    try {
+      const res = await api.get('/auth/me');
+      setUser(res.data);
+    } catch {
+      // ignore; token check will run on next mount
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, logout, isRole }}>
+    <AuthContext.Provider value={{ user, token, loading, login, logout, isRole, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useAuth() {
   return useContext(AuthContext);
 }

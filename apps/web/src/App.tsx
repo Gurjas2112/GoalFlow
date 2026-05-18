@@ -1,11 +1,12 @@
 
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { PrivateRoute } from './components/Shared';
 import Sidebar from './components/Sidebar';
 import HomePage from './pages/HomePage';
 import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
+import ChangePasswordPage from './pages/ChangePasswordPage';
 import EmployeeGoalsPage from './pages/EmployeeGoalsPage';
 import EmployeeCheckInPage from './pages/EmployeeCheckInPage';
 import ManagerTeamPage from './pages/ManagerTeamPage';
@@ -31,6 +32,16 @@ function RoleRedirect() {
 
 function AppContent() {
   const { user } = useAuth();
+  const location = useLocation();
+  // If a user must change password, force them onto /change-password
+  // (allow /login so they can still sign out).
+  if (
+    user?.mustChangePassword &&
+    location.pathname !== '/change-password' &&
+    location.pathname !== '/login'
+  ) {
+    return <Navigate to="/change-password" replace />;
+  }
   return (
     <>
       {user && <Sidebar />}
@@ -39,6 +50,7 @@ function AppContent() {
           <Route path="/" element={<HomePage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignupPage />} />
+          <Route path="/change-password" element={<PrivateRoute><ChangePasswordPage /></PrivateRoute>} />
           <Route path="/dashboard" element={<RoleRedirect />} />
           <Route path="/employee/goals" element={<PrivateRoute role="EMPLOYEE"><EmployeeGoalsPage /></PrivateRoute>} />
           <Route path="/employee/checkin" element={<PrivateRoute role="EMPLOYEE"><EmployeeCheckInPage /></PrivateRoute>} />

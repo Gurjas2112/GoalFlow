@@ -10,12 +10,17 @@ const router = Router();
 router.post('/sso', async (req: any, res: Response) => {
   try {
     const { accessToken, profile } = req.body;
-    if (!accessToken || !profile?.mail) {
+    if (!accessToken || !profile) {
       res.status(400).json({ error: 'Access token and profile required' });
       return;
     }
 
-    const email = profile.mail || profile.userPrincipalName;
+    const rawEmail = profile.mail || profile.userPrincipalName;
+    if (!rawEmail) {
+      res.status(400).json({ error: 'Profile is missing an email address' });
+      return;
+    }
+    const email = String(rawEmail).trim().toLowerCase();
     const name = profile.displayName || email.split('@')[0];
 
     // Find or create user
@@ -36,14 +41,15 @@ router.post('/sso', async (req: any, res: Response) => {
       else if (managerGroup && groups.includes(managerGroup)) role = 'MANAGER';
 
       const adminOverride = (process.env.ADMIN_OVERRIDE_EMAIL || '').toLowerCase();
-      if (adminOverride && email.toLowerCase() === adminOverride) {
+      if (adminOverride && email === adminOverride) {
         role = 'ADMIN';
       }
 
       // Find manager from Azure AD (if available)
       let managerId: string | undefined;
       if (profile.manager?.mail) {
-        const mgr = await prisma.user.findUnique({ where: { email: profile.manager.mail } });
+        const mgrEmail = String(profile.manager.mail).trim().toLowerCase();
+        const mgr = await prisma.user.findUnique({ where: { email: mgrEmail } });
         if (mgr) managerId = mgr.id;
       }
 
