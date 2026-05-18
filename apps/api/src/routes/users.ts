@@ -2,6 +2,7 @@ import { Router, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import prisma from '../prisma';
 import { AuthRequest, requireAuth, requireRole } from '../middleware/auth';
+import { notifyAccountCreated } from '../utils/notify';
 
 const router = Router();
 
@@ -53,12 +54,30 @@ router.get('/team', requireAuth, requireRole('MANAGER'), async (req: AuthRequest
   }
 });
 
-// POST /api/users — Admin: create user
+// Generate random temporary password (12 chars: 1 upper, 1 lower, 1 number, 1 special + 8 random)
+function generateTemporaryPassword(): string {
+  const uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  const lowercase = 'abcdefghijklmnopqrstuvwxyz';
+  const numbers = '0123456789';
+  const special = '!@#$%^&*';
+  const all = uppercase + lowercase + numbers + special;
+  let password = '';
+  password += uppercase[Math.floor(Math.random() * uppercase.length)];
+  password += lowercase[Math.floor(Math.random() * lowercase.length)];
+  password += numbers[Math.floor(Math.random() * numbers.length)];
+  password += special[Math.floor(Math.random() * special.length)];
+  for (let i = 0; i < 8; i++) {
+    password += all[Math.floor(Math.random() * all.length)];
+  }
+  return password.split('').sort(() => 0.5 - Math.random()).join('');
+}
+
+// POST /api/users — Admin: create user with auto-generated password
 router.post('/', requireAuth, requireRole('ADMIN'), async (req: AuthRequest, res: Response) => {
   try {
-    const { name, email, password, role, departmentId, managerId } = req.body;
-    if (!name || !email || !password || !role) {
-      res.status(400).json({ error: 'name, email, password, role are required' });
+    const { name, email, role, departmentId, managerId } = req.body;
+    if (!name || !email || !role) {
+      res.status(400).json({ error: 'name, email, role are required' });
       return;
     }
 
@@ -68,10 +87,18 @@ router.post('/', requireAuth, requireRole('ADMIN'), async (req: AuthRequest, res
       return;
     }
 
-    const passwordHash = await bcrypt.hash(password, 10);
+    // Generate temporary password
+    const temporaryPassword = generateTemporaryPassword();
+    const passwordHash = await bcrypt.hash(temporaryPassword, 10);
+    
     const user = await prisma.user.create({
       data: { name, email, passwordHash, role, departmentId, managerId },
       include: { department: true },
+    });
+
+    // Send welcome email with credentials (non-blocking)
+    notifyAccountCreated(name, email, temporaryPassword).catch((err) => {
+      console.error('Failed to send welcome email:', err);
     });
 
     res.status(201).json({
@@ -82,6 +109,8 @@ router.post('/', requireAuth, requireRole('ADMIN'), async (req: AuthRequest, res
       departmentId: user.departmentId,
       managerId: user.managerId,
       department: user.department,
+      temporaryPassword,
+      message: `Account created! Welcome email sent to ${email} with login credentials.`,
     });
   } catch (err) {
     console.error('Create user error:', err);

@@ -222,3 +222,29 @@ export async function notifyCheckInReminder(employeeName: string, employeeEmail:
     </div>`
   );
 }
+
+export async function notifyAccountCreated(employeeName: string, employeeEmail: string, temporaryPassword: string) {
+  const link = `${baseUrl()}/login`;
+  await sendEmailWithRetry(employeeEmail, '👋 Welcome to GoalFlow — Your Account Created',
+    `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:20px">
+      <h2 style="color:#6366f1">Welcome to GoalFlow! 👋</h2>
+      <p>Hi <strong>${employeeName}</strong>,</p>
+      <p>Your account has been created by the admin team. You can now log in to GoalFlow and start managing your goals.</p>
+      
+      <div style="background:#f0f4ff;border-left:4px solid #6366f1;padding:15px;margin:20px 0;border-radius:4px">
+        <p style="margin:0 0 10px 0"><strong>Login Credentials:</strong></p>
+        <p style="margin:5px 0;font-family:monospace;background:white;padding:10px;border-radius:4px">
+          <strong>Email:</strong> ${employeeEmail}
+        </p>
+        <p style="margin:5px 0;font-family:monospace;background:white;padding:10px;border-radius:4px">
+          <strong>Password:</strong> ${temporaryPassword}
+        </p>
+        <p style="color:#f59e0b;font-weight:600;margin-top:10px">⚠️ Please change this password after your first login.</p>
+      </div>
+      
+      <p><a href="${link}" style="display:inline-block;background:#6366f1;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;margin:20px 0">Log In to GoalFlow →</a></p>
+      
+      <p style="color:#888;font-size:12px;margin-top:30px">GoalFlow — Goal Setting & Tracking Portal<br/>Manage your goals and track progress efficiently.</p>
+    </div>`
+  );
+}

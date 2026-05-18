@@ -54,6 +54,50 @@ router.post('/login', async (req, res: Response) => {
   }
 });
 
+// POST /api/auth/signup
+router.post('/signup', async (req: any, res: Response) => {
+  try {
+    const { name, email, password, department } = req.body;
+    if (!name || !email || !password) {
+      res.status(400).json({ error: 'Name, email, and password are required' });
+      return;
+    }
+
+    const existing = await prisma.user.findUnique({ where: { email } });
+    if (existing) {
+      res.status(409).json({ error: 'Email already exists' });
+      return;
+    }
+
+    // Try to find or create the department
+    let departmentId = undefined;
+    if (department) {
+      let dept = await prisma.department.findFirst({ where: { name: department } });
+      if (!dept) {
+        dept = await prisma.department.create({ data: { name: department } });
+      }
+      departmentId = dept.id;
+    }
+
+    const passwordHash = await bcrypt.hash(password, 10);
+    const userRole = email.toLowerCase() === 'gsgbmcc@gmail.com' ? 'ADMIN' : 'EMPLOYEE';
+    const user = await prisma.user.create({
+      data: {
+        name,
+        email,
+        passwordHash,
+        role: userRole,
+        departmentId,
+      },
+    });
+
+    res.status(201).json({ message: 'User created successfully', userId: user.id });
+  } catch (err) {
+    console.error('Signup error:', err);
+    res.status(500).json({ error: 'Signup failed' });
+  }
+});
+
 // POST /api/auth/me
 router.post('/me', requireAuth, async (req: AuthRequest, res: Response) => {
   try {

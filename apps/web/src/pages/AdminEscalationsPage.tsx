@@ -1,9 +1,31 @@
 import { useEffect, useState } from 'react';
 import { api } from '../lib/api';
 
+interface User {
+  id: string;
+  name: string;
+  email?: string;
+}
+
+interface Escalation {
+  id: string;
+  userId: string;
+  reason: string;
+  createdAt: string;
+  user?: User;
+}
+
+interface EscalationRule {
+  id: string;
+  eventType: string;
+  triggerAfterDays: number;
+  notifyRole: string;
+  isActive: boolean;
+}
+
 export default function AdminEscalationsPage() {
-  const [escalations, setEscalations] = useState<any[]>([]);
-  const [rules, setRules] = useState<any[]>([]);
+  const [escalations, setEscalations] = useState<Escalation[]>([]);
+  const [rules, setRules] = useState<EscalationRule[]>([]);
   const [tab, setTab] = useState<'open' | 'rules'>('open');
   const [loading, setLoading] = useState(true);
 
@@ -12,16 +34,48 @@ export default function AdminEscalationsPage() {
       const [escRes, rulesRes] = await Promise.all([api.get('/escalations'), api.get('/escalations/rules')]);
       setEscalations(escRes.data);
       setRules(rulesRes.data);
-    } catch {}
-    setLoading(false);
+    } catch (err) {
+      console.error('Failed to fetch escalations:', err);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  useEffect(() => { fetch(); }, []);
+  useEffect(() => {
+    let isMounted = true;
+    const loadData = async () => {
+      try {
+        const [escRes, rulesRes] = await Promise.all([api.get('/escalations'), api.get('/escalations/rules')]);
+        if (isMounted) {
+          setEscalations(escRes.data);
+          setRules(rulesRes.data);
+          setLoading(false);
+        }
+      } catch (err) {
+        console.error('Failed to fetch escalations:', err);
+        if (isMounted) setLoading(false);
+      }
+    };
+    loadData();
+    return () => { isMounted = false; };
+  }, []);
 
-  const resolve = async (id: string) => { try { await api.put(`/escalations/${id}/resolve`); fetch(); } catch {} };
+  const resolve = async (id: string) => {
+    try {
+      await api.put(`/escalations/${id}/resolve`);
+      await fetch();
+    } catch (err) {
+      console.error('Failed to resolve escalation:', err);
+    }
+  };
 
   const toggleRule = async (id: string, isActive: boolean) => {
-    try { await api.put(`/escalations/rules/${id}`, { isActive: !isActive }); fetch(); } catch {}
+    try {
+      await api.put(`/escalations/rules/${id}`, { isActive: !isActive });
+      await fetch();
+    } catch (err) {
+      console.error('Failed to toggle rule:', err);
+    }
   };
 
   if (loading) return <div className="loading-page"><div className="spinner" /></div>;
@@ -63,8 +117,8 @@ export default function AdminEscalationsPage() {
                   <td>{r.triggerAfterDays}</td>
                   <td><span className="badge badge-locked">{r.notifyRole}</span></td>
                   <td>
-                    <label className="toggle">
-                      <input type="checkbox" checked={r.isActive} onChange={() => toggleRule(r.id, r.isActive)} />
+                    <label className="toggle" title="Toggle escalation rule active status">
+                      <input type="checkbox" title="Toggle rule" checked={r.isActive} onChange={() => toggleRule(r.id, r.isActive)} />
                       <span className="toggle-slider" />
                     </label>
                   </td>

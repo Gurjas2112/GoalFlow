@@ -109,6 +109,8 @@ export default function AdminScoringDemoPage() {
                 value={target}
                 onChange={(e) => setTarget(Number(e.target.value))}
                 disabled={uomType === 'ZERO' || uomType === 'TIMELINE'}
+                aria-label={uomType === 'TIMELINE' ? 'Days Late' : uomType === 'ZERO' ? 'Incidents' : 'Target'}
+                placeholder={uomType === 'TIMELINE' ? 'Days late' : uomType === 'ZERO' ? 'Incidents' : 'Target value'}
               />
             </div>
             <div className="form-group">
@@ -120,6 +122,8 @@ export default function AdminScoringDemoPage() {
                 className="form-input"
                 value={actual}
                 onChange={(e) => setActual(Number(e.target.value))}
+                aria-label={uomType === 'TIMELINE' ? 'Days Late' : 'Actual'}
+                placeholder={uomType === 'TIMELINE' ? 'Days late' : 'Actual value'}
               />
             </div>
             <div className="form-group">
@@ -131,6 +135,8 @@ export default function AdminScoringDemoPage() {
                 onChange={(e) => setWeightage(Number(e.target.value))}
                 min={10}
                 max={100}
+                aria-label="Weightage percentage"
+                placeholder="Weightage %"
               />
             </div>
           </div>
