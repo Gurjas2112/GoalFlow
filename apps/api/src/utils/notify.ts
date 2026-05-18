@@ -74,7 +74,7 @@ async function sendEmailRaw(to: string, subject: string, html: string): Promise<
 
   const data = JSON.stringify({
     personalizations: [{ to: [{ email: to }] }],
-    from: { email: process.env.SENDGRID_FROM_EMAIL || 'noreply@goalflow.demo', name: 'GoalFlow' },
+    from: { email: process.env.SENDGRID_FROM_EMAIL || 'gsgbmcc@gmail.com', name: 'GoalFlow' },
     subject,
     content: [{ type: 'text/html', value: html }],
   });
