@@ -21,12 +21,6 @@ export default function HomePage() {
     { number: '∞', label: 'Scalable', sub: 'Any org size' },
   ];
 
-  const testimonials = [
-    { name: 'Rajesh Kumar', role: 'Senior Engineer', avatar: '👨‍💼', quote: 'GoalFlow made goal tracking so simple. I know exactly what I need to achieve and how it connects to the company.' },
-    { name: 'Priya Patel', role: 'Engineering Manager', avatar: '👩‍💼', quote: 'As a manager, this dashboard gives me real-time visibility. No more spreadsheet chaos. Approvals are smooth.' },
-    { name: 'Amit Sharma', role: 'HR Director', avatar: '👨‍💻', quote: 'Audit trail is comprehensive. Appraisal data is accurate and timely. Escalations keep everyone accountable.' },
-  ];
-
   const faqItems = [
     { q: 'How does the scoring system work?', a: 'GoalFlow auto-calculates achievement scores based on UoM type. For revenue target $1M with $850K achieved, score = 85%. Different UoM types use different formulas.' },
     { q: 'Can goals be changed after approval?', a: 'No, once approved by your manager, goals are locked. Only admins can unlock, and all changes are logged in the audit trail.' },
@@ -180,29 +174,6 @@ export default function HomePage() {
                     <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginTop: 6, lineHeight: 1.6 }}>{f.desc}</p>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Testimonials */}
-      <section style={{ padding: '80px 0' }}>
-        <div style={s.sectionInner}>
-          <h2 style={s.sectionTitle}>What Users Say</h2>
-          <p style={s.sectionSub}>Real feedback from different user roles</p>
-          <div style={s.testGrid}>
-            {testimonials.map((t, i) => (
-              <div key={i} style={s.testCard} onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-hover)'; }} onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-                  <div style={{ fontSize: '2rem' }}>{t.avatar}</div>
-                  <div>
-                    <div style={{ fontWeight: 700, color: 'var(--text)', fontSize: '0.9rem' }}>{t.name}</div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{t.role}</div>
-                  </div>
-                </div>
-                <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontStyle: 'italic', lineHeight: 1.7 }}>"{t.quote}"</p>
-                <div style={{ marginTop: 12, color: '#fbbf24', letterSpacing: 2 }}>★★★★★</div>
               </div>
             ))}
           </div>
