@@ -120,7 +120,7 @@ Organizations relying on manual or fragmented goal-tracking methods struggle wit
 |---|---------|-------------|
 | 1 | **Microsoft Entra ID SSO** | Azure AD login via MSAL with auto-provisioning. Role from AD security groups **or** comma-separated email allowlists (works with personal MS accounts). Re-syncs role on every login. Tracks Azure `oid`, `authProvider`, and `lastSsoLoginAt` per user. |
 | 2 | **Admin SSO Validation View** | Admin → Users page shows a per-user **Azure SSO badge**, the linked Azure object id (tooltip), and last Microsoft sign-in timestamp. A summary banner counts SSO vs local accounts. |
-| 3 | **Email Notifications** | SendGrid-powered emails on goal submit, approve, and return events |
+| 3 | **Email Notifications** | Nodemailer (SMTP) emails on goal submit, approve, and return events |
 | 4 | **Teams Integration** | Webhook adaptive cards with deep-link navigation to goal sheets |
 | 5 | **Escalation Engine** | Configurable rules for overdue goals/check-ins with resolution workflow |
 | 6 | **Analytics Dashboard** | QoQ trends, department heatmap, goal distribution, manager effectiveness |
@@ -148,7 +148,7 @@ Organizations relying on manual or fragmented goal-tracking methods struggle wit
 | **Database** | PostgreSQL 16 (Supabase) | Cloud-hosted relational DB |
 | **Auth** | JWT + Microsoft Entra ID | Stateless auth + SSO |
 | **Hashing** | bcryptjs | Password security |
-| **Email** | SendGrid API | Transactional email notifications |
+| **Email** | Nodemailer (SMTP) | Transactional email notifications via any SMTP relay |
 | **Teams** | Incoming Webhooks | Adaptive card notifications |
 | **Containers** | Docker + docker-compose | Multi-stage production builds |
 | **Deployment** | Vercel + Railway | Frontend CDN + API hosting |
@@ -350,7 +350,7 @@ GoalFlow/
 │   │   │   │   └── analytics.ts # QoQ, heatmap, distribution
 │   │   │   └── utils/
 │   │   │       ├── audit.ts    # Audit log writer
-│   │   │       ├── notify.ts   # SendGrid + Teams webhooks
+│   │   │       ├── notify.ts   # Nodemailer (SMTP) + Teams webhooks
 │   │   │       └── scoreCompute.ts # Score computation engine
 │   │   ├── tsconfig.json
 │   │   └── package.json
@@ -472,7 +472,7 @@ AZURE_EMPLOYEE_EMAILS="eve@gmail.com"             # explicit per-email allowlist
 ADMIN_OVERRIDE_EMAIL="you@corp.com"
 
 # Email Notifications (optional)
-# --- Option A (recommended, free): Gmail SMTP via Nodemailer ---
+# --- Gmail SMTP via Nodemailer (recommended, free) ---
 # 1. Enable 2-Step Verification on the Gmail account
 # 2. Generate an App Password: https://myaccount.google.com/apppasswords
 # 3. Paste the 16-char password (no spaces) below
@@ -481,9 +481,6 @@ SMTP_PORT="587"
 SMTP_USER="your.email@gmail.com"
 SMTP_PASS="abcdabcdabcdabcd"
 SMTP_FROM_EMAIL="your.email@gmail.com"
-# --- Option B (fallback): SendGrid HTTP API (requires verified sender) ---
-SENDGRID_API_KEY="your-sendgrid-api-key"
-SENDGRID_FROM_EMAIL="noreply@goalflow.demo"
 
 # Teams Notifications (optional)
 TEAMS_WEBHOOK_URL="your-teams-incoming-webhook-url"
@@ -598,7 +595,7 @@ Navigate to **http://localhost:5173** and use the quick-login buttons.
 | Vercel | Free | $0 |
 | Railway | Hobby | $5 |
 | Azure AD | Free | $0 |
-| SendGrid | Free (100 emails/day) | $0 |
+| Gmail SMTP (Nodemailer) | Free (~500 emails/day) | $0 |
 | GitHub | Free | $0 |
 | **Total** | | **$5/month** |
 
@@ -641,7 +638,7 @@ Redirects to role-appropriate dashboard
 
 ### Events that trigger notifications:
 
-| Event | Email (SendGrid) | Teams (Webhook) | Recipient |
+| Event | Email (SMTP) | Teams (Webhook) | Recipient |
 |-------|:-:|:-:|---|
 | Goal sheet submitted | ✅ | ✅ | Manager |
 | Goal sheet approved | ✅ | ✅ | Employee |
@@ -650,14 +647,11 @@ Redirects to role-appropriate dashboard
 
 ### Email Setup
 
-GoalFlow supports two transports. At startup the API picks the first one that has all required variables set:
+GoalFlow uses **Nodemailer over SMTP** for all transactional email — provider-agnostic, so it works with Gmail, Office 365, Mailtrap, Postfix, AWS SES SMTP, etc. The transport activates as soon as `SMTP_HOST`, `SMTP_USER` and `SMTP_PASS` are set.
 
-1. **SMTP via Nodemailer** (recommended, free, no third-party signup) — used if `SMTP_HOST`, `SMTP_USER`, `SMTP_PASS` are all set.
-2. **SendGrid HTTP API** (fallback) — used if `SENDGRID_API_KEY` is set.
+The **Admin → Notifications** page shows the active transport and lets you send a test email.
 
-The Admin → Notifications page shows the active transport and lets you send a test email.
-
-#### Option A — Gmail SMTP (free, recommended)
+#### Gmail SMTP (free, recommended)
 
 Gmail allows ~500 messages/day from a personal account, more from Workspace. No domain or sender verification needed beyond enabling 2FA.
 
@@ -678,18 +672,16 @@ Gmail allows ~500 messages/day from a personal account, more from Workspace. No 
    node scripts/test-email.mjs recipient@example.com
    ```
 
-#### Option B — SendGrid (fallback)
+#### Other SMTP providers
 
-1. Go to [sendgrid.com](https://sendgrid.com) → Sign up (free tier: 100 emails/day)
-2. Navigate to **Settings → API Keys → Create API Key**
-   - Name: `GoalFlow`
-   - Permissions: **Restricted Access** → enable **Mail Send → Full Access**
-3. **Verify a Single Sender** under **Settings → Sender Authentication** — SendGrid rejects any `From` address that has not been verified, which is the most common cause of HTTP 400.
-4. Copy the API key (shown only once) and add to your `.env`:
-   ```env
-   SENDGRID_API_KEY="SG.xxxxxxxxxxxxxxxxxxxxx"
-   SENDGRID_FROM_EMAIL="verified-sender@yourdomain.com"
-   ```
+Any provider that exposes plain SMTP works — just swap the host/port/credentials:
+
+| Provider | `SMTP_HOST` | `SMTP_PORT` | Notes |
+|---|---|---|---|
+| Office 365 | `smtp.office365.com` | `587` | App password or modern auth |
+| Mailtrap (dev) | `sandbox.smtp.mailtrap.io` | `2525` | Sandbox — emails captured, not delivered |
+| Amazon SES | `email-smtp.<region>.amazonaws.com` | `587` | Use SMTP credentials, not IAM keys |
+| Self-hosted Postfix | your host | `25` / `587` | Internal mail relays |
 
 ### Microsoft Teams Webhook Setup
 
@@ -979,7 +971,7 @@ Built for **AtomQuest Hackathon 1.0 (2026)** by [Gurjas Gandhi](https://github.c
 | Docker | ✅ | 3-container compose (Node 22 + Nginx + PG16) |
 | SSO | ✅ | Microsoft Entra ID (Azure AD) for **Admin, Manager and Employee** — group **or** email-allowlist role mapping, role re-sync, oid-pinned identity |
 | Admin SSO Validation | ✅ | Admin → Users page shows Auth provider, Azure oid (tooltip), last SSO sign-in |
-| Notifications | ✅ | SendGrid email + Teams webhooks |
+| Notifications | ✅ | Nodemailer (SMTP) email + Teams webhooks |
 | Analytics | ✅ | QoQ trends, heatmaps, distributions |
 | Audit Trail | ✅ | Complete change history |
 | Escalations | ✅ | Automated rule-based alerts |
