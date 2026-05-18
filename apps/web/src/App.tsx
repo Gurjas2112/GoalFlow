@@ -34,7 +34,7 @@ function AppContent() {
   return (
     <>
       {user && <Sidebar />}
-      <main className={user ? 'main-content' : ''}>
+      <main className={user ? 'main-content' : 'public-content'}>
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/login" element={<LoginPage />} />

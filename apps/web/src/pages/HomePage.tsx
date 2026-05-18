@@ -39,31 +39,31 @@ export default function HomePage() {
   const s = {
     page: { minHeight: '100vh', background: 'var(--bg-primary)', position: 'relative' as const, overflow: 'hidden' as const },
     nav: { background: 'rgba(5,10,24,0.85)', backdropFilter: 'blur(20px)', borderBottom: '1px solid var(--border)', position: 'sticky' as const, top: 0, zIndex: 50 },
-    navInner: { maxWidth: 1200, margin: '0 auto', padding: '0 2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: 64 },
+    navInner: { maxWidth: 1600, margin: '0 auto', padding: '0 3rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: 64 },
     brand: { display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' },
     brandLogo: { width: 36, height: 36, borderRadius: 10 },
     brandText: { fontSize: '1.4rem', fontWeight: 900, background: 'var(--gradient-1)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundSize: '200% auto' },
     navBtns: { display: 'flex', gap: 12 },
     btnOutline: { padding: '8px 20px', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', border: '1px solid var(--border)', borderRadius: 10, background: 'transparent', cursor: 'pointer', transition: 'var(--transition)', fontFamily: 'var(--font)' },
     btnGrad: { padding: '8px 24px', fontSize: '0.85rem', fontWeight: 600, color: '#fff', border: 'none', borderRadius: 10, background: 'var(--gradient-1)', cursor: 'pointer', transition: 'var(--transition)', fontFamily: 'var(--font)', boxShadow: '0 4px 15px rgba(99,102,241,0.3)' },
-    hero: { maxWidth: 1200, margin: '0 auto', padding: '80px 2rem 60px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 60, alignItems: 'center' },
-    heroH1: { fontSize: '3.2rem', fontWeight: 900, lineHeight: 1.1, letterSpacing: '-0.03em', color: 'var(--text)' },
+    hero: { maxWidth: 1600, margin: '0 auto', padding: '80px 3rem 60px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 80, alignItems: 'center' },
+    heroH1: { fontSize: '3.8rem', fontWeight: 900, lineHeight: 1.1, letterSpacing: '-0.03em', color: 'var(--text)' },
     heroGrad: { background: 'var(--gradient-1)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' },
     heroP: { fontSize: '1.1rem', color: 'var(--text-secondary)', lineHeight: 1.7, marginTop: 20 },
     heroCta: { display: 'flex', gap: 16, marginTop: 36 },
     heroBtn: { padding: '14px 32px', fontSize: '1rem', fontWeight: 700, color: '#fff', border: 'none', borderRadius: 14, background: 'var(--gradient-1)', cursor: 'pointer', boxShadow: '0 8px 30px rgba(99,102,241,0.35)', transition: 'var(--transition)', fontFamily: 'var(--font)' },
     heroBtnSec: { padding: '14px 32px', fontSize: '1rem', fontWeight: 700, color: 'var(--accent-hover)', border: '2px solid var(--border-hover)', borderRadius: 14, background: 'var(--accent-glow)', cursor: 'pointer', transition: 'var(--transition)', fontFamily: 'var(--font)' },
-    heroVisual: { position: 'relative' as const, height: 420 },
+    heroVisual: { position: 'relative' as const, height: 480 },
     heroCard: { position: 'relative' as const, height: '100%', background: 'linear-gradient(135deg, rgba(99,102,241,0.08), rgba(168,85,247,0.06))', border: '1px solid var(--border-hover)', borderRadius: 20, backdropFilter: 'blur(20px)', display: 'flex', flexDirection: 'column' as const, alignItems: 'center', justifyContent: 'center', padding: 40, overflow: 'hidden' as const },
-    statsGrid: { maxWidth: 1200, margin: '0 auto', padding: '0 2rem 80px', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 20 },
+    statsGrid: { maxWidth: 1600, margin: '0 auto', padding: '0 3rem 80px', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 24 },
     statCard: { background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 14, padding: '28px 20px', textAlign: 'center' as const, transition: 'var(--transition)', cursor: 'default' },
     section: { padding: '80px 0', background: 'rgba(0,0,0,0.2)' },
-    sectionInner: { maxWidth: 1200, margin: '0 auto', padding: '0 2rem' },
-    sectionTitle: { fontSize: '2.5rem', fontWeight: 900, textAlign: 'center' as const, color: 'var(--text)', letterSpacing: '-0.03em' },
+    sectionInner: { maxWidth: 1600, margin: '0 auto', padding: '0 3rem' },
+    sectionTitle: { fontSize: '2.8rem', fontWeight: 900, textAlign: 'center' as const, color: 'var(--text)', letterSpacing: '-0.03em' },
     sectionSub: { fontSize: '1.05rem', color: 'var(--text-secondary)', textAlign: 'center' as const, marginTop: 12, maxWidth: 600, marginLeft: 'auto', marginRight: 'auto' },
-    featGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 48 },
+    featGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(420px, 1fr))', gap: 20, marginTop: 48 },
     featCard: { padding: 28, borderRadius: 16, border: '2px solid', cursor: 'pointer', transition: 'var(--transition)' },
-    testGrid: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 24, marginTop: 48 },
+    testGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 24, marginTop: 48 },
     testCard: { background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 16, padding: 28, transition: 'var(--transition)' },
     faqList: { maxWidth: 800, margin: '48px auto 0', display: 'flex', flexDirection: 'column' as const, gap: 12 },
     ctaSection: { padding: '80px 0', background: 'linear-gradient(135deg, rgba(99,102,241,0.08), rgba(168,85,247,0.06), rgba(236,72,153,0.04))' },
@@ -229,8 +229,8 @@ export default function HomePage() {
 
       {/* CTA */}
       <section style={s.ctaSection}>
-        <div style={{ maxWidth: 700, margin: '0 auto', textAlign: 'center', padding: '0 2rem' }}>
-          <h2 style={{ fontSize: '2.5rem', fontWeight: 900, color: 'var(--text)', letterSpacing: '-0.03em' }}>Ready to Transform Goal Management?</h2>
+        <div style={{ maxWidth: 900, margin: '0 auto', textAlign: 'center', padding: '0 3rem' }}>
+          <h2 style={{ fontSize: '2.8rem', fontWeight: 900, color: 'var(--text)', letterSpacing: '-0.03em' }}>Ready to Transform Goal Management?</h2>
           <p style={{ fontSize: '1.05rem', color: 'var(--text-secondary)', marginTop: 16 }}>Join teams across organizations using GoalFlow for transparent, audit-ready goal tracking.</p>
           <div style={{ display: 'flex', gap: 16, justifyContent: 'center', marginTop: 36 }}>
             <button style={s.heroBtn} onClick={() => navigate('/signup')}>Create Free Account →</button>
@@ -254,7 +254,7 @@ export default function HomePage() {
 
       {/* Footer */}
       <footer style={s.footer}>
-        <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap' as const, gap: 20 }}>
+        <div style={{ maxWidth: 1600, margin: '0 auto', padding: '0 3rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap' as const, gap: 20 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <img src="/logo.png" alt="GoalFlow" style={{ width: 28, height: 28, borderRadius: 8 }} />
             <span style={{ fontWeight: 800, background: 'var(--gradient-1)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>GoalFlow</span>
