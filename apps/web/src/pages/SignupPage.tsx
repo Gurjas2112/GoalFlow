@@ -84,6 +84,7 @@ export default function SignupPage() {
         profile: {
           mail: result.account?.username,
           displayName: result.account?.name,
+          oid: claims.oid || result.account?.homeAccountId,
           groups: claims.groups || [],
         },
       });

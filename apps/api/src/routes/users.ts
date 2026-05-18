@@ -28,6 +28,9 @@ router.get('/', requireAuth, requireRole('ADMIN'), async (req: AuthRequest, res:
         managerId: u.managerId,
         department: u.department,
         manager: u.manager,
+        authProvider: u.authProvider,
+        azureOid: u.azureOid,
+        lastSsoLoginAt: u.lastSsoLoginAt,
       }))
     );
   } catch (err) {

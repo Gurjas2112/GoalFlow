@@ -118,17 +118,18 @@ Organizations relying on manual or fragmented goal-tracking methods struggle wit
 
 | # | Feature | Description |
 |---|---------|-------------|
-| 1 | **Microsoft Entra ID SSO** | Azure AD login via MSAL with auto-provisioning and group→role mapping |
-| 2 | **Email Notifications** | SendGrid-powered emails on goal submit, approve, and return events |
-| 3 | **Teams Integration** | Webhook adaptive cards with deep-link navigation to goal sheets |
-| 4 | **Escalation Engine** | Configurable rules for overdue goals/check-ins with resolution workflow |
-| 5 | **Analytics Dashboard** | QoQ trends, department heatmap, goal distribution, manager effectiveness |
-| 6 | **Shared Goals** | Manager can push org-level KPIs to multiple employees |
-| 7 | **Cycle Override** | Admin can force-open any cycle for demo/testing |
-| 8 | **Premium Dark UI** | Glassmorphism, gradient animations, micro-interactions |
-| 9 | **Landing Page** | Stunning homepage with hero, features, testimonials, FAQ |
-| 10 | **Signup Flow** | Multi-step registration with password strength indicator |
-| 11 | **Docker Containerization** | Multi-stage builds, Node 22 Alpine, Nginx + health checks |
+| 1 | **Microsoft Entra ID SSO** | Azure AD login via MSAL with auto-provisioning. Role from AD security groups **or** comma-separated email allowlists (works with personal MS accounts). Re-syncs role on every login. Tracks Azure `oid`, `authProvider`, and `lastSsoLoginAt` per user. |
+| 2 | **Admin SSO Validation View** | Admin → Users page shows a per-user **Azure SSO badge**, the linked Azure object id (tooltip), and last Microsoft sign-in timestamp. A summary banner counts SSO vs local accounts. |
+| 3 | **Email Notifications** | SendGrid-powered emails on goal submit, approve, and return events |
+| 4 | **Teams Integration** | Webhook adaptive cards with deep-link navigation to goal sheets |
+| 5 | **Escalation Engine** | Configurable rules for overdue goals/check-ins with resolution workflow |
+| 6 | **Analytics Dashboard** | QoQ trends, department heatmap, goal distribution, manager effectiveness |
+| 7 | **Shared Goals** | Manager can push org-level KPIs to multiple employees |
+| 8 | **Cycle Override** | Admin can force-open any cycle for demo/testing |
+| 9 | **Premium Dark UI** | Glassmorphism, gradient animations, micro-interactions |
+| 10 | **Landing Page** | Public homepage with hero, features, stats, FAQ. Logged-in users hitting `/` are auto-redirected to their role dashboard. |
+| 11 | **Signup Flow** | Multi-step registration with password strength indicator + Microsoft SSO signup |
+| 12 | **Docker Containerization** | Multi-stage builds, Node 22 Alpine, Nginx + health checks |
 
 ---
 
@@ -164,20 +165,23 @@ Organizations relying on manual or fragmented goal-tracking methods struggle wit
 ├─────────────────────────────────────────────────────────────────────────┤
 │                                                                         │
 │  🌐 VISITOR                                                             │
-│  ├── Lands on Homepage (/) → sees features, stats, testimonials, FAQ    │
+│  ├── Lands on Homepage (/) — only when *not* logged in                 │
+│  ├── Logged-in users hitting `/` are redirected to their role dashboard │
 │  ├── Clicks "Get Started Free" → Signup (/signup)                       │
 │  ├── Clicks "Try Demo" → Login (/login) with demo account pre-fill      │
 │  └── Clicks demo role button → auto-fills credentials on login page     │
 │                                                                         │
 │  📝 SIGNUP FLOW                                                         │
-│  ├── Enter name, email, department, password                            │
+│  ├── Enter name, email, department, password (or Sign up with Microsoft)│
 │  ├── Password strength indicator validates in real-time                 │
-│  ├── Account created → success page with next steps                     │
-│  └── Redirects to Login                                                 │
+│  ├── Microsoft SSO signup auto-provisions account from Azure AD         │
+│  └── Redirects to Login (or directly to dashboard for SSO)              │
 │                                                                         │
 │  🔐 LOGIN                                                               │
 │  ├── Email/Password login (JWT auth)                                    │
 │  ├── Microsoft SSO popup (Azure AD — auto-appears if configured)        │
+│  ├── Role assigned from AD groups OR email allowlists (re-synced each   │
+│  │   login so Azure promotions/demotions take effect automatically)     │
 │  ├── Quick Demo Access: 4 pre-configured accounts                       │
 │  └── Redirects to role-appropriate dashboard                            │
 │                                                                         │
@@ -446,9 +450,18 @@ APP_BASE_URL="http://localhost:5173"
 AZURE_CLIENT_ID="your-azure-app-client-id"
 AZURE_CLIENT_SECRET="your-azure-client-secret"
 AZURE_TENANT_ID="your-azure-tenant-id"
+
+# Option A — Map roles by Azure AD security group (recommended for production)
 AZURE_GROUP_ADMIN="object-id-of-GoalFlow-Admins-group"
 AZURE_GROUP_MANAGER="object-id-of-GoalFlow-Managers-group"
 AZURE_GROUP_EMPLOYEE="object-id-of-GoalFlow-Employees-group"
+
+# Option B — Map roles by email allowlist (works with personal MS accounts too)
+AZURE_ADMIN_EMAILS="alice@corp.com,bob@corp.com"
+AZURE_MANAGER_EMAILS="carol@corp.com,dave@corp.com"
+
+# Optional bootstrap: a single email that is always promoted to ADMIN on SSO
+ADMIN_OVERRIDE_EMAIL="you@corp.com"
 
 # Email Notifications (optional)
 SENDGRID_API_KEY="your-sendgrid-api-key"
@@ -793,25 +806,58 @@ VITE_AZURE_REDIRECT_URI=https://goal-flow-theta.vercel.app
 ### How SSO Works
 
 ```
-User clicks "Sign in with Microsoft"
+User clicks "Sign in with Microsoft" (Login or Signup page)
     ↓
 MSAL.js opens Azure AD popup
     ↓
 User authenticates with Microsoft account
     ↓
-Azure returns ID token + group claims
+Azure returns ID token + group claims + oid (immutable per Azure identity)
     ↓
-Frontend sends token to POST /api/auth/sso
+Frontend sends { accessToken, profile: { mail, displayName, oid, groups } }
+to POST /api/auth/sso
     ↓
-Backend verifies token, maps group → role:
-  GoalFlow-Admins    → ADMIN
-  GoalFlow-Managers  → MANAGER
-  GoalFlow-Employees → EMPLOYEE
+Backend resolves role in this order:
+  1. ADMIN_OVERRIDE_EMAIL == email  → ADMIN
+  2. AZURE_GROUP_ADMIN in groups    → ADMIN
+  3. AZURE_ADMIN_EMAILS contains email → ADMIN
+  4. AZURE_GROUP_MANAGER in groups  → MANAGER
+  5. AZURE_MANAGER_EMAILS contains email → MANAGER
+  6. otherwise                      → EMPLOYEE
     ↓
-Auto-provisions user if first login
+First login → auto-provisions user with authProvider="AZURE_AD",
+              azureOid, lastSsoLoginAt
+Subsequent logins → re-syncs role (promotions/demotions take effect),
+              updates lastSsoLoginAt, refuses if a *different* Azure oid is
+              trying to use the same email (impersonation guard)
     ↓
-Returns JWT token → user logged in
+Returns JWT token → user redirected to role-appropriate dashboard
 ```
+
+### Validating SSO accounts from the Admin dashboard
+
+The **Admin → Users** page surfaces the SSO state so admins can verify
+that the *same Azure credential* is being used for account registration
+and subsequent logins:
+
+- **Auth column** — `🔐 Azure SSO` badge (hover for the linked Azure `oid`)
+  or `Local` for password-only accounts.
+- **Last Azure Sign-in column** — timestamp of the most recent
+  `POST /api/auth/sso` call for that user.
+- **Summary banner** — counts Azure SSO vs local accounts, plus the most
+  recent Azure sign-in across the whole organisation.
+
+Under the hood every SSO login writes:
+
+| Column | Source |
+|---|---|
+| `authProvider` | set to `AZURE_AD` on first SSO login |
+| `azureOid`     | Azure AD `oid` claim (`User_azureOid_key` unique index) |
+| `lastSsoLoginAt` | `new Date()` on every successful SSO call |
+
+If the email already exists in GoalFlow but a different Azure `oid`
+attempts to sign in, the backend responds with HTTP 409 and refuses to
+rebind — protecting the account from cross-tenant impersonation.
 
 ### Quick Reference
 
@@ -848,12 +894,41 @@ Built for **AtomQuest Hackathon 1.0 (2026)** by [Gurjas Gandhi](https://github.c
 | Live Demo | ✅ | [goal-flow-theta.vercel.app](https://goal-flow-theta.vercel.app) |
 | Source Code | ✅ | [GitHub](https://github.com/Gurjas2112/GoalFlow) |
 | Demo Credentials | ✅ | 4 accounts (Admin, Manager, 2 Employees) |
-| Homepage | ✅ | Hero, features, stats, testimonials, FAQ |
-| Signup Flow | ✅ | Registration with password strength |
+| Homepage | ✅ | Hero, features, stats, FAQ. Auto-redirects logged-in users to their dashboard. |
+| Signup Flow | ✅ | Registration with password strength + Microsoft SSO signup |
 | Docker | ✅ | 3-container compose (Node 22 + Nginx + PG16) |
-| SSO | ✅ | Microsoft Entra ID (Azure AD) |
+| SSO | ✅ | Microsoft Entra ID (Azure AD) for **Admin, Manager and Employee** — group **or** email-allowlist role mapping, role re-sync, oid-pinned identity |
+| Admin SSO Validation | ✅ | Admin → Users page shows Auth provider, Azure oid (tooltip), last SSO sign-in |
 | Notifications | ✅ | SendGrid email + Teams webhooks |
 | Analytics | ✅ | QoQ trends, heatmaps, distributions |
 | Audit Trail | ✅ | Complete change history |
 | Escalations | ✅ | Automated rule-based alerts |
 | Monthly Cost | ✅ | **$5/month** (Railway hobby) |
+
+---
+
+## ✅ Problem-Statement Requirement Coverage
+
+| PS Requirement | Status | Where it lives |
+|---|:---:|---|
+| **Phase 1 — Employee creates goal sheet** (DRAFT → SUBMITTED) | ✅ | [apps/web/src/pages/EmployeeGoalsPage.tsx](apps/web/src/pages/EmployeeGoalsPage.tsx), `POST /api/goal-sheets`, `POST /api/goals` |
+| Thrust-area selection, title, description, UoM, target, weightage, deadline | ✅ | Goal model in [prisma/schema.prisma](prisma/schema.prisma); UI form in EmployeeGoalsPage |
+| Validation: total weightage = 100%, min 10% per goal, max 8 goals, TIMELINE needs deadline | ✅ | [apps/api/src/routes/goals.ts](apps/api/src/routes/goals.ts), [apps/api/src/routes/goalSheets.ts](apps/api/src/routes/goalSheets.ts) |
+| Shared goals — read-only target, editable weightage, primary-owner achievement sync | ✅ | `POST /api/goals/shared`, `isShared` + `sharedFromId` fields in schema |
+| **Phase 1 — Manager (L1) approval** with inline edit, approve → LOCK, return for rework | ✅ | [apps/web/src/pages/ManagerReviewPage.tsx](apps/web/src/pages/ManagerReviewPage.tsx), `POST /api/goal-sheets/:id/approve` & `/return` |
+| Post-approval lock; admin unlock with audit | ✅ | `POST /api/goal-sheets/:id/unlock`, [apps/api/src/utils/audit.ts](apps/api/src/utils/audit.ts) |
+| **Phase 2 — Quarterly achievement logging** with NOT_STARTED / ON_TRACK / COMPLETED | ✅ | [apps/web/src/pages/EmployeeCheckInPage.tsx](apps/web/src/pages/EmployeeCheckInPage.tsx), `PUT /api/achievements/:goalId` |
+| **Phase 2 — Manager check-in module** (planned vs achieved + structured comments) | ✅ | `POST /api/check-ins`, ManagerReviewPage |
+| Score computation engine (4 UoM types) and weighted overall score | ✅ | [apps/api/src/utils/scoreCompute.ts](apps/api/src/utils/scoreCompute.ts) |
+| Cycle management (GOAL_SETTING / Q1–Q4 + admin override) | ✅ | [apps/web/src/pages/AdminCyclesPage.tsx](apps/web/src/pages/AdminCyclesPage.tsx), `GET/POST /api/cycles` |
+| **Reporting** — achievement report + CSV export + completion dashboard | ✅ | [apps/web/src/pages/AdminReportsPage.tsx](apps/web/src/pages/AdminReportsPage.tsx), `GET /api/reports/achievement[/export]` |
+| **Audit trail** of post-lock changes (old/new value, timestamp, user) | ✅ | `AuditLog` model, [apps/web/src/pages/AdminAuditPage.tsx](apps/web/src/pages/AdminAuditPage.tsx), `GET /api/audit` |
+| **RBAC** — Employee / Manager / Admin with separate views | ✅ | [apps/api/src/middleware/auth.ts](apps/api/src/middleware/auth.ts) (`requireRole`), role-aware routing in [apps/web/src/App.tsx](apps/web/src/App.tsx) |
+| **Bonus — Microsoft Entra ID SSO** for all three roles | ✅ | [apps/api/src/routes/sso.ts](apps/api/src/routes/sso.ts), [apps/web/src/lib/msalConfig.ts](apps/web/src/lib/msalConfig.ts); Sign-in with Microsoft on both Login and Signup |
+| **Bonus — Email + Teams notifications** on submit / approve / return | ✅ | [apps/api/src/utils/notify.ts](apps/api/src/utils/notify.ts) |
+| **Bonus — Escalation engine** (configurable rules + background job) | ✅ | [apps/api/src/jobs/escalationTrigger.ts](apps/api/src/jobs/escalationTrigger.ts), [apps/web/src/pages/AdminEscalationsPage.tsx](apps/web/src/pages/AdminEscalationsPage.tsx) |
+| **Bonus — Analytics** (QoQ, heatmap, distribution, manager effectiveness) | ✅ | [apps/web/src/pages/AdminAnalyticsPage.tsx](apps/web/src/pages/AdminAnalyticsPage.tsx), `GET /api/analytics/*` |
+| **Bonus — Shared / cascaded goals** | ✅ | `POST /api/goals/shared` |
+| **Bonus — Containerization** | ✅ | [docker-compose.yml](docker-compose.yml), [apps/api/Dockerfile](apps/api/Dockerfile), [apps/web/Dockerfile](apps/web/Dockerfile) |
+
+**Result:** All mandatory Phase 1 & Phase 2 requirements are implemented, plus every "good-to-have" item from the problem statement. The Azure SSO path now covers Admin, Manager **and** Employee with a verifiable identity link (Azure `oid`) that admins can audit directly from the Users dashboard.

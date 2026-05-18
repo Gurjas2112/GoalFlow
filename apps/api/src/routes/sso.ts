@@ -22,6 +22,9 @@ router.post('/sso', async (req: any, res: Response) => {
     }
     const email = String(rawEmail).trim().toLowerCase();
     const name = profile.displayName || email.split('@')[0];
+    // Azure AD object id (immutable per Azure identity) — proves the same
+    // Azure credential is being used across logins/registrations.
+    const azureOid: string | null = profile.oid || profile.id || null;
 
     // ── Resolve role from Azure AD groups OR email allowlists ────────────
     // Two ways to map an SSO user to MANAGER / ADMIN:
@@ -75,6 +78,9 @@ router.post('/sso', async (req: any, res: Response) => {
           passwordHash: await bcrypt.hash(`sso-${Date.now()}`, 10),
           role,
           managerId,
+          authProvider: 'AZURE_AD',
+          azureOid: azureOid || undefined,
+          lastSsoLoginAt: new Date(),
         },
         include: { department: true },
       });
@@ -83,13 +89,26 @@ router.post('/sso', async (req: any, res: Response) => {
       // entries take effect on the next login (admins can promote in Azure
       // without manually editing the local DB).
       const desiredRole = resolveRole();
-      if (desiredRole !== user.role) {
-        user = await prisma.user.update({
-          where: { id: user.id },
-          data: { role: desiredRole },
-          include: { department: true },
+      // If a previously-Azure-linked account is being accessed by a *different*
+      // Azure identity (different oid) for the same email, refuse — this
+      // prevents impersonation through an Azure tenant the admin didn't expect.
+      if (user.azureOid && azureOid && user.azureOid !== azureOid) {
+        res.status(409).json({
+          error: 'Azure identity mismatch',
+          message: 'This email is linked to a different Azure AD account. Contact an administrator.',
         });
+        return;
       }
+      user = await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          ...(desiredRole !== user.role ? { role: desiredRole } : {}),
+          authProvider: 'AZURE_AD',
+          ...(azureOid && !user.azureOid ? { azureOid } : {}),
+          lastSsoLoginAt: new Date(),
+        },
+        include: { department: true },
+      });
     }
 
     const token = jwt.sign(

@@ -1,0 +1,10 @@
+{
+  // Prisma generates PostgreSQL migration files. VS Code's bundled MSSQL
+  // extension otherwise parses them as T-SQL and flags valid Postgres syntax
+  // (e.g. `ADD COLUMN`, `TIMESTAMP(3)`) as errors. Force-associate the
+  // migration files with the generic `sql` language to silence the noise.
+  "files.associations": {
+    "**/prisma/migrations/**/*.sql": "sql"
+  },
+  "mssql.intelliSense.enableIntelliSense": false
+}

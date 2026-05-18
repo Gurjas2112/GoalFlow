@@ -10,6 +10,9 @@ interface User {
   managerId?: string;
   department?: { id: string; name: string };
   manager?: { id: string; name: string };
+  authProvider?: string;
+  azureOid?: string | null;
+  lastSsoLoginAt?: string | null;
 }
 
 interface Department {
@@ -88,6 +91,31 @@ export default function AdminUsersPage() {
         <div><h1 className="page-title">User Management</h1><p className="page-subtitle">Manage employees, managers, and admins</p></div>
         <button className="btn btn-primary" onClick={() => { setShowForm(true); setSuccess(null); }}>+ Add User</button>
       </div>
+
+      {/* Azure SSO summary — lets admins validate which accounts authenticate
+          via the same Azure credentials. */}
+      {(() => {
+        const sso = users.filter(u => u.authProvider === 'AZURE_AD');
+        const local = users.length - sso.length;
+        const lastSso = sso
+          .map(u => u.lastSsoLoginAt)
+          .filter(Boolean)
+          .sort()
+          .pop();
+        return (
+          <div className="alert-info" style={{ display: 'flex', gap: 24, alignItems: 'center', flexWrap: 'wrap', marginBottom: 16 }}>
+            <div>
+              <strong>🔐 Azure SSO accounts:</strong> {sso.length} of {users.length}
+              {' '}({local} local-password only)
+            </div>
+            {lastSso && (
+              <div style={{ fontSize: '0.85rem', opacity: 0.8 }}>
+                Most recent Azure sign-in: {new Date(lastSso).toLocaleString()}
+              </div>
+            )}
+          </div>
+        );
+      })()}
       {success && (
         <div className="alert-success">
           <div className="alert-success-header">
@@ -106,7 +134,7 @@ export default function AdminUsersPage() {
       )}
       <div className="table-container">
         <table>
-          <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Department</th><th>Manager</th></tr></thead>
+          <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Department</th><th>Manager</th><th>Auth</th><th>Last Azure Sign-in</th></tr></thead>
           <tbody>
             {users.map((u) => (
               <tr key={u.id}>
@@ -115,6 +143,19 @@ export default function AdminUsersPage() {
                 <td><span className={`badge badge-${u.role === 'ADMIN' ? 'locked' : u.role === 'MANAGER' ? 'submitted' : 'draft'}`}>{u.role}</span></td>
                 <td>{u.department?.name || '—'}</td>
                 <td className="text-secondary">{u.manager?.name || '—'}</td>
+                <td>
+                  {u.authProvider === 'AZURE_AD' ? (
+                    <span
+                      className="badge badge-submitted"
+                      title={u.azureOid ? `Azure object id: ${u.azureOid}` : 'Linked to Azure AD'}
+                    >🔐 Azure SSO</span>
+                  ) : (
+                    <span className="badge badge-draft" title="Password-based account">Local</span>
+                  )}
+                </td>
+                <td className="text-secondary" style={{ fontSize: '0.82rem' }}>
+                  {u.lastSsoLoginAt ? new Date(u.lastSsoLoginAt).toLocaleString() : '—'}
+                </td>
               </tr>
             ))}
           </tbody>

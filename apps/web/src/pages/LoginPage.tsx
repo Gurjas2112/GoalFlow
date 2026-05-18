@@ -107,7 +107,7 @@ export default function LoginPage() {
                 try {
                   await msalInstance.initialize();
                   const result = await msalInstance.loginPopup(loginRequest);
-                  const res = await api.post('/auth/sso', { accessToken: result.accessToken, profile: { mail: result.account?.username, displayName: result.account?.name, groups: (result as any).idTokenClaims?.groups || [] } });
+                  const res = await api.post('/auth/sso', { accessToken: result.accessToken, profile: { mail: result.account?.username, displayName: result.account?.name, oid: (result as any).idTokenClaims?.oid || result.account?.homeAccountId, groups: (result as any).idTokenClaims?.groups || [] } });
                   localStorage.setItem('goalflow_token', res.data.token);
                   localStorage.setItem('goalflow_user', JSON.stringify(res.data.user));
                   window.location.href = res.data.user.role === 'ADMIN' ? '/admin/dashboard' : res.data.user.role === 'MANAGER' ? '/manager/team' : '/employee/goals';

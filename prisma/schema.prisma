@@ -57,6 +57,9 @@ model User {
   departmentId  String?
   managerId     String?
   mustChangePassword Boolean @default(false)
+  authProvider  String   @default("LOCAL") // "LOCAL" | "AZURE_AD"
+  azureOid      String?  @unique           // Azure AD object id (oid claim) — proves same Azure identity
+  lastSsoLoginAt DateTime?
   createdAt     DateTime @default(now())
 
   department    Department?  @relation(fields: [departmentId], references: [id])
