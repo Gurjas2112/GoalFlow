@@ -80,7 +80,8 @@ router.post('/signup', async (req: any, res: Response) => {
     }
 
     const passwordHash = await bcrypt.hash(password, 10);
-    const userRole = email.toLowerCase() === 'gsgbmcc@gmail.com' ? 'ADMIN' : 'EMPLOYEE';
+    const adminOverride = (process.env.ADMIN_OVERRIDE_EMAIL || '').toLowerCase();
+    const userRole = adminOverride && email.toLowerCase() === adminOverride ? 'ADMIN' : 'EMPLOYEE';
     const user = await prisma.user.create({
       data: {
         name,

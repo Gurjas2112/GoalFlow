@@ -93,14 +93,26 @@ router.post('/', requireAuth, requireRole('ADMIN'), async (req: AuthRequest, res
     const passwordHash = await bcrypt.hash(temporaryPassword, 10);
     
     const user = await prisma.user.create({
-      data: { name, email, passwordHash, role, departmentId, managerId },
+      data: {
+        name,
+        email,
+        passwordHash,
+        role,
+        // Empty strings from the admin form would violate FK constraints — normalize to null
+        departmentId: departmentId || null,
+        managerId: managerId || null,
+      },
       include: { department: true },
     });
 
-    // Send welcome email with credentials (non-blocking)
-    notifyAccountCreated(name, email, temporaryPassword).catch((err) => {
-      console.error('Failed to send welcome email:', err);
-    });
+    // Send welcome email with credentials (non-blocking; never fails the request)
+    try {
+      notifyAccountCreated(name, email, temporaryPassword).catch((err) => {
+        console.error('Failed to send welcome email:', err?.message || err);
+      });
+    } catch (err: any) {
+      console.error('Welcome notify dispatch error:', err?.message || err);
+    }
 
     res.status(201).json({
       id: user.id,
@@ -128,8 +140,8 @@ router.put('/:id', requireAuth, requireRole('ADMIN'), async (req: AuthRequest, r
       data: {
         ...(name && { name }),
         ...(role && { role }),
-        ...(departmentId !== undefined && { departmentId }),
-        ...(managerId !== undefined && { managerId }),
+        ...(departmentId !== undefined && { departmentId: departmentId || null }),
+        ...(managerId !== undefined && { managerId: managerId || null }),
       },
       include: { department: true },
     });

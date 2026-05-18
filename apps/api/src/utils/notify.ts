@@ -47,7 +47,9 @@ async function sendEmailRaw(to: string, subject: string, html: string): Promise<
         if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
           resolve(res.statusCode);
         } else {
-          reject(new Error(`SendGrid returned ${res.statusCode}`));
+          const e: any = new Error(`SendGrid returned ${res.statusCode}`);
+          e.statusCode = res.statusCode;
+          reject(e);
         }
       });
     });
@@ -73,8 +75,10 @@ async function sendEmailWithRetry(to: string, subject: string, html: string, ret
     console.log(`✅ Email sent to ${to}: ${subject}`);
   } catch (err: any) {
     const error = err.message || String(err);
+    const status = err?.statusCode;
+    const retriable = !(typeof status === 'number' && status >= 400 && status < 500);
 
-    if (retryCount < MAX_RETRIES) {
+    if (retriable && retryCount < MAX_RETRIES) {
       notificationQueue.push({
         event: subject, recipient: to, channel: 'EMAIL',
         status: 'RETRYING', attempt: retryCount + 1, error, timestamp: new Date(),
@@ -125,7 +129,9 @@ async function sendTeamsRaw(title: string, message: string, deepLink?: string): 
         if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
           resolve(res.statusCode);
         } else {
-          reject(new Error(`Teams webhook returned ${res.statusCode}`));
+          const e: any = new Error(`Teams webhook returned ${res.statusCode}`);
+          e.statusCode = res.statusCode;
+          reject(e);
         }
       });
     });
@@ -151,8 +157,10 @@ async function sendTeamsWithRetry(title: string, message: string, deepLink?: str
     console.log(`✅ Teams notification sent: ${title}`);
   } catch (err: any) {
     const error = err.message || String(err);
+    const status = err?.statusCode;
+    const retriable = !(typeof status === 'number' && status >= 400 && status < 500);
 
-    if (retryCount < MAX_RETRIES) {
+    if (retriable && retryCount < MAX_RETRIES) {
       notificationQueue.push({
         event: title, recipient: 'Teams Channel', channel: 'TEAMS',
         status: 'RETRYING', attempt: retryCount + 1, error, timestamp: new Date(),

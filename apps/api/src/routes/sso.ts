@@ -34,8 +34,9 @@ router.post('/sso', async (req: any, res: Response) => {
 
       if (adminGroup && groups.includes(adminGroup)) role = 'ADMIN';
       else if (managerGroup && groups.includes(managerGroup)) role = 'MANAGER';
-      
-      if (email.toLowerCase() === 'gsgbmcc@gmail.com') {
+
+      const adminOverride = (process.env.ADMIN_OVERRIDE_EMAIL || '').toLowerCase();
+      if (adminOverride && email.toLowerCase() === adminOverride) {
         role = 'ADMIN';
       }
 

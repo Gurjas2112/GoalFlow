@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
+import { msalInstance, loginRequest, isSSOConfigured } from '../lib/msalConfig';
 
 interface AxiosError {
   response?: {
@@ -65,6 +66,36 @@ export default function SignupPage() {
     } catch (err: unknown) {
       const axiosErr = err as AxiosError;
       setError(axiosErr.response?.data?.error || axiosErr.message || 'Signup failed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleMicrosoftSignup = async (): Promise<void> => {
+    setError('');
+    setLoading(true);
+    try {
+      await msalInstance.initialize();
+      const result = await msalInstance.loginPopup(loginRequest);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const claims = (result as any).idTokenClaims || {};
+      const res = await api.post('/auth/sso', {
+        accessToken: result.accessToken,
+        profile: {
+          mail: result.account?.username,
+          displayName: result.account?.name,
+          groups: claims.groups || [],
+        },
+      });
+      localStorage.setItem('goalflow_token', res.data.token);
+      localStorage.setItem('goalflow_user', JSON.stringify(res.data.user));
+      const role = res.data.user.role;
+      window.location.href =
+        role === 'ADMIN' ? '/admin/dashboard' :
+        role === 'MANAGER' ? '/manager/team' : '/employee/goals';
+    } catch (err: unknown) {
+      const e = err as { message?: string };
+      setError(e.message || 'Microsoft signup failed');
     } finally {
       setLoading(false);
     }
@@ -199,6 +230,30 @@ export default function SignupPage() {
             {loading ? '⏳ Creating Account...' : 'Create Account →'}
           </button>
         </form>
+
+        {isSSOConfigured() && (
+          <div className="sso-divider-wrap">
+            <div className="sso-divider">
+              <div className="sso-divider-line" />
+              <span className="sso-divider-text">or</span>
+              <div className="sso-divider-line" />
+            </div>
+            <button
+              type="button"
+              onClick={handleMicrosoftSignup}
+              disabled={loading}
+              className="btn-microsoft-sso"
+            >
+              <svg width="20" height="20" viewBox="0 0 21 21" aria-hidden="true">
+                <rect x="1" y="1" width="9" height="9" fill="#f25022" />
+                <rect x="11" y="1" width="9" height="9" fill="#7fba00" />
+                <rect x="1" y="11" width="9" height="9" fill="#00a4ef" />
+                <rect x="11" y="11" width="9" height="9" fill="#ffb900" />
+              </svg>
+              Sign up with Microsoft
+            </button>
+          </div>
+        )}
 
         <div className="text-center form-center-footer">
           <p className="form-footer-text">

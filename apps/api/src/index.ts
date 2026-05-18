@@ -53,11 +53,16 @@ app.listen(PORT, () => {
   // Start escalation trigger job (runs every 60 minutes)
   startEscalationJob();
 
-  // Auto-sync Azure AD users on startup
-  syncAzureADUsers().catch((err) => {
-    console.error('⚠️ Azure AD sync on startup failed:', err);
-    console.log('💡 You can manually sync using: POST /api/users/sync/azure');
-  });
+  // Auto-sync Azure AD users on startup — disabled by default.
+  // Set AZURE_AUTO_SYNC=true once admin consent is granted in the Azure portal.
+  if (process.env.AZURE_AUTO_SYNC === 'true') {
+    syncAzureADUsers().catch((err: any) => {
+      console.error('⚠️ Azure AD sync on startup failed:', err?.code || err?.message || 'unknown error');
+      console.log('💡 Trigger manually via POST /api/users/sync/azure once admin consent is granted.');
+    });
+  } else {
+    console.log('ℹ️  Azure AD auto-sync disabled (set AZURE_AUTO_SYNC=true to enable).');
+  }
 });
 
 export default app;
