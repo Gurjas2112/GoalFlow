@@ -1,10 +1,9 @@
 /**
  * Notification utilities with retry logic and in-memory logging.
  *
- * Email transport priority (first one configured wins):
- *   1. SMTP via Nodemailer  — set SMTP_HOST, SMTP_USER, SMTP_PASS (free with
- *      Gmail App Passwords, no third-party signup required).
- *   2. SendGrid HTTP API    — set SENDGRID_API_KEY.
+ * Email transport: SMTP via Nodemailer — set SMTP_HOST, SMTP_USER, SMTP_PASS
+ * (works with Gmail App Passwords, Office 365, AWS SES SMTP, Mailtrap, or any
+ * other SMTP relay; no third-party signup required).
  *
  * Teams transport: TEAMS_WEBHOOK_URL.
  *
@@ -34,28 +33,24 @@ export function getNotificationLog() {
 }
 
 export function getNotificationConfig() {
-  const sendgridKey = process.env.SENDGRID_API_KEY || '';
-  const fromEmail = process.env.SENDGRID_FROM_EMAIL || process.env.SMTP_FROM_EMAIL || '';
+  const fromEmail = process.env.SMTP_FROM_EMAIL || '';
   const teamsUrl = process.env.TEAMS_WEBHOOK_URL || '';
   const smtpHost = process.env.SMTP_HOST || '';
   const smtpUser = process.env.SMTP_USER || '';
+  const smtpConfigured = !!(smtpHost && smtpUser && process.env.SMTP_PASS);
   return {
     smtp: {
-      configured: !!(smtpHost && smtpUser),
+      configured: smtpConfigured,
       host: smtpHost || null,
       port: process.env.SMTP_PORT || null,
       user: smtpUser || null,
-    },
-    sendgrid: {
-      configured: !!sendgridKey,
-      apiKeyHint: sendgridKey ? `${sendgridKey.slice(0, 5)}… (${sendgridKey.length} chars)` : null,
       fromEmail: fromEmail || null,
       fromEmailConfigured: !!fromEmail,
     },
     teams: {
       configured: !!teamsUrl,
     },
-    activeEmailTransport: smtpHost && smtpUser ? 'SMTP' : (sendgridKey ? 'SENDGRID' : 'NONE'),
+    activeEmailTransport: smtpConfigured ? 'SMTP' : 'NONE',
   };
 }
 
@@ -66,13 +61,9 @@ export async function sendTestEmail(to: string) {
     <p>If you received this, your email integration is working.</p>
     <p style="color:#888;font-size:12px">Sent at ${new Date().toISOString()}</p>
   </div>`;
-  const smtpConfigured = !!(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS);
-  const useSmtp = smtpConfigured;
-  const transportName = useSmtp ? 'SMTP' : 'SendGrid';
+  const transportName = 'SMTP';
   try {
-    const status = useSmtp
-      ? await sendSmtpRaw(to, 'GoalFlow Email Test', html)
-      : await sendEmailRaw(to, 'GoalFlow Email Test', html);
+    const status = await sendSmtpRaw(to, 'GoalFlow Email Test', html);
     notificationQueue.push({
       event: `Email Test (${transportName})`, recipient: to, channel: 'EMAIL',
       status: 'SUCCESS', attempt: 1, timestamp: new Date(),
@@ -87,7 +78,7 @@ export async function sendTestEmail(to: string) {
   }
 }
 
-// ═══ SMTP TRANSPORT (Nodemailer) — free alternative to SendGrid ═══
+// ═══ SMTP TRANSPORT (Nodemailer) ═══
 let cachedTransporter: Transporter | null = null;
 function getSmtpTransporter(): Transporter | null {
   const host = process.env.SMTP_HOST;
@@ -108,7 +99,7 @@ function getSmtpTransporter(): Transporter | null {
 async function sendSmtpRaw(to: string, subject: string, html: string): Promise<number> {
   const transporter = getSmtpTransporter();
   if (!transporter) throw new Error('SMTP not configured');
-  const from = process.env.SMTP_FROM_EMAIL || process.env.SENDGRID_FROM_EMAIL || process.env.SMTP_USER!;
+  const from = process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER!;
   await transporter.sendMail({
     from: `"GoalFlow" <${from}>`,
     to,
@@ -118,77 +109,24 @@ async function sendSmtpRaw(to: string, subject: string, html: string): Promise<n
   return 250; // SMTP success code
 }
 
-// ═══ SENDGRID EMAIL WITH RETRY ═══
-async function sendEmailRaw(to: string, subject: string, html: string): Promise<number> {
-  const apiKey = process.env.SENDGRID_API_KEY;
-  if (!apiKey) throw new Error('SENDGRID_API_KEY not configured');
-
-  const data = JSON.stringify({
-    personalizations: [{ to: [{ email: to }] }],
-    from: { email: process.env.SENDGRID_FROM_EMAIL || 'gsgbmcc@gmail.com', name: 'GoalFlow' },
-    subject,
-    content: [{ type: 'text/html', value: html }],
-  });
-
-  return new Promise((resolve, reject) => {
-    const req = https.request({
-      hostname: 'api.sendgrid.com', path: '/v3/mail/send', method: 'POST',
-      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json', 'Content-Length': data.length },
-    }, (res) => {
-      const chunks: Buffer[] = [];
-      res.on('data', (c) => chunks.push(c));
-      res.on('end', () => {
-        if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
-          resolve(res.statusCode);
-        } else {
-          // Pull SendGrid's structured error so the admin sees the real reason
-          // (e.g. "The from address does not match a verified Sender Identity").
-          const body = Buffer.concat(chunks).toString('utf8');
-          let detail = body;
-          try {
-            const json = JSON.parse(body);
-            if (Array.isArray(json.errors) && json.errors.length) {
-              detail = json.errors.map((er: any) => er.message || JSON.stringify(er)).join('; ');
-            }
-          } catch { /* leave raw body */ }
-          const e: any = new Error(`SendGrid returned ${res.statusCode}: ${detail}`);
-          e.statusCode = res.statusCode;
-          e.body = body;
-          reject(e);
-        }
-      });
-    });
-    req.on('error', reject);
-    req.write(data);
-    req.end();
-  });
-}
-
 async function sendEmailWithRetry(to: string, subject: string, html: string, retryCount = 0): Promise<void> {
   const smtpConfigured = !!(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS);
-  const apiKey = process.env.SENDGRID_API_KEY;
 
-  if (!smtpConfigured && !apiKey) {
+  if (!smtpConfigured) {
     console.warn('⚠️ No email transport configured — skipped:', subject, '→', to);
     notificationQueue.push({
       event: subject, recipient: to, channel: 'EMAIL',
       status: 'SKIPPED', attempt: 0,
-      error: 'No email transport configured (set SMTP_HOST/SMTP_USER/SMTP_PASS or SENDGRID_API_KEY)',
+      error: 'No email transport configured (set SMTP_HOST/SMTP_USER/SMTP_PASS)',
       timestamp: new Date(),
     });
     return;
   }
 
-  // Prefer SMTP when configured — it's free with Gmail app passwords and
-  // sidesteps SendGrid's sender-verification requirements.
-  const useSmtp = smtpConfigured;
-  const send = useSmtp
-    ? () => sendSmtpRaw(to, subject, html)
-    : () => sendEmailRaw(to, subject, html);
-  const transportName = useSmtp ? 'SMTP' : 'SendGrid';
+  const transportName = 'SMTP';
 
   try {
-    await send();
+    await sendSmtpRaw(to, subject, html);
     notificationQueue.push({
       event: subject, recipient: to, channel: 'EMAIL',
       status: 'SUCCESS', attempt: retryCount + 1, timestamp: new Date(),

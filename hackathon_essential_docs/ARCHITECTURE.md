@@ -60,7 +60,7 @@
 │  ┌─── Utilities ──────────────────────────────────────────────┐     │
 │  │ scoreCompute.ts   4 UoM formulas (MIN/MAX/TIMELINE/ZERO)   │     │
 │  │ audit.ts          Post-lock change tracker                  │     │
-│  │ notify.ts         SendGrid email + Teams webhook (3 retries)│     │
+│  │ notify.ts         SMTP (Nodemailer) email + Teams webhook (3 retries)│
 │  └────────────────────────────────────────────────────────────┘     │
 └──────────────────────────────────┬──────────────────────────────────┘
                                    │ Prisma ORM (type-safe queries)
@@ -87,10 +87,10 @@
 ┌─────────────────────────────────────────────────────────────────────┐
 │                     EXTERNAL INTEGRATIONS                            │
 │                                                                      │
-│  ┌── Azure AD ──┐  ┌── SendGrid ──┐  ┌── Teams ──────────────┐    │
-│  │ MSAL.js      │  │ Email API    │  │ Incoming Webhook      │    │
+│  ┌── Azure AD ──┐  ┌── SMTP ──────┐  ┌── Teams ──────────────┐    │
+│  │ MSAL.js      │  │ Nodemailer   │  │ Incoming Webhook      │    │
 │  │ OAuth2 popup │  │ 3x retry     │  │ Adaptive cards        │    │
-│  │ Group claims │  │ 100/day free │  │ Deep-link support     │    │
+│  │ Group claims │  │ Any provider │  │ Deep-link support     │    │
 │  │ Auto-provn   │  │ HTML styled  │  │ GoalFlow branding     │    │
 │  └──────────────┘  └──────────────┘  └───────────────────────┘    │
 └─────────────────────────────────────────────────────────────────────┘
@@ -176,7 +176,7 @@ Hourly Job (setInterval)
 │ Vercel         │ Free     │ $0       │ Global CDN, auto SSL         │
 │ Railway        │ Hobby    │ $5       │ API container, auto-deploy   │
 │ Azure AD       │ Free     │ $0       │ SSO, Graph API, 50 apps      │
-│ SendGrid       │ Free     │ $0       │ 100 emails/day               │
+│ SMTP (Gmail)   │ Free     │ $0       │ ~500 emails/day via Nodemailer│
 │ GitHub         │ Free     │ $0       │ Repo, Actions, GHCR          │
 ├────────────────┼──────────┼──────────┼──────────────────────────────┤
 │ TOTAL          │          │ $5/month │ Full production stack        │

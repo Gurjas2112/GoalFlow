@@ -12,10 +12,9 @@ interface NotificationLog {
 }
 
 interface ProviderConfig {
-  smtp: { configured: boolean; host: string | null; port: string | null; user: string | null };
-  sendgrid: { configured: boolean; apiKeyHint: string | null; fromEmail: string | null; fromEmailConfigured: boolean };
+  smtp: { configured: boolean; host: string | null; port: string | null; user: string | null; fromEmail: string | null; fromEmailConfigured: boolean };
   teams: { configured: boolean };
-  activeEmailTransport: 'SMTP' | 'SENDGRID' | 'NONE';
+  activeEmailTransport: 'SMTP' | 'NONE';
 }
 
 export default function AdminNotificationsPage() {
@@ -129,8 +128,7 @@ export default function AdminNotificationsPage() {
             <div>
               <strong>Active email transport:</strong>{' '}
               {config.activeEmailTransport === 'SMTP' && <span style={{ color: 'var(--success)' }}>✅ SMTP (Nodemailer)</span>}
-              {config.activeEmailTransport === 'SENDGRID' && <span style={{ color: 'var(--success)' }}>✅ SendGrid</span>}
-              {config.activeEmailTransport === 'NONE' && <span style={{ color: 'var(--danger)' }}>❌ None — set SMTP_HOST/SMTP_USER/SMTP_PASS or SENDGRID_API_KEY</span>}
+              {config.activeEmailTransport === 'NONE' && <span style={{ color: 'var(--danger)' }}>❌ None — set SMTP_HOST/SMTP_USER/SMTP_PASS</span>}
             </div>
             <div>
               <strong>SMTP:</strong>{' '}
@@ -139,18 +137,9 @@ export default function AdminNotificationsPage() {
               ) : (
                 <span style={{ color: 'var(--text-muted)' }}>— Not configured</span>
               )}
-            </div>
-            <div>
-              <strong>SendGrid:</strong>{' '}
-              {config.sendgrid.configured ? (
-                <span style={{ color: 'var(--success)' }}>✅ Configured</span>
-              ) : (
-                <span style={{ color: 'var(--text-muted)' }}>— Not configured</span>
-              )}
-              {config.sendgrid.configured && (
+              {config.smtp.configured && config.smtp.fromEmail && (
                 <div style={{ fontSize: 11, opacity: 0.7, marginTop: 4 }}>
-                  Key: <code>{config.sendgrid.apiKeyHint}</code>{' · '}
-                  From: <code>{config.sendgrid.fromEmail || '(default)'}</code>
+                  From: <code>{config.smtp.fromEmail}</code>
                 </div>
               )}
             </div>

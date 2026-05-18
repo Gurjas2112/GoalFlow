@@ -15,7 +15,7 @@ router.get('/config', requireAuth, requireRole('ADMIN'), (req: AuthRequest, res:
   res.json(getNotificationConfig());
 });
 
-// POST /api/notifications/test-email — Admin: send a SendGrid test email
+// POST /api/notifications/test-email — Admin: send an SMTP test email
 router.post('/test-email', requireAuth, requireRole('ADMIN'), async (req: AuthRequest, res: Response) => {
   const to = String(req.body?.to || '').trim();
   if (!to || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) {

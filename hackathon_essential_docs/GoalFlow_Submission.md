@@ -26,27 +26,39 @@
 
 ## 📑 Index
 
-1. [Executive Summary](#1-executive-summary)
-2. [Problem Statement & Objectives](#2-problem-statement--objectives)
-3. [Solution Overview](#3-solution-overview)
-4. [Live Deployment & Repository](#4-live-deployment--repository)
-5. [Demo Credentials](#5-demo-credentials)
-6. [System Architecture](#6-system-architecture)
-    - 6.1 [Architecture Diagram (PlantUML)](#61-architecture-diagram-plantuml)
-    - 6.2 [Deployment Topology (PlantUML)](#62-deployment-topology-plantuml)
-    - 6.3 [Goal Sheet State Machine (PlantUML)](#63-goal-sheet-state-machine-plantuml)
-    - 6.4 [ER Diagram (PlantUML)](#64-er-diagram-plantuml)
-    - 6.5 [Approval Sequence (PlantUML)](#65-approval-sequence-plantuml)
-7. [Technology Stack](#7-technology-stack)
-8. [Core Feature Walkthrough](#8-core-feature-walkthrough)
-9. [Application Screenshots](#9-application-screenshots)
-10. [Scoring Engine — Formula Reference](#10-scoring-engine--formula-reference)
-11. [Security, RBAC & Audit](#11-security-rbac--audit)
-12. [Integrations: Azure AD SSO, SMTP Email, Teams](#12-integrations-azure-ad-sso-smtp-email-teams)
-13. [BRD Compliance Matrix](#13-brd-compliance-matrix)
-14. [Local Setup & Run Instructions](#14-local-setup--run-instructions)
-15. [Future Roadmap](#15-future-roadmap)
-16. [Conclusion](#16-conclusion)
+- [GoalFlow](#goalflow)
+    - [Enterprise Goal Setting \& Tracking Portal](#enterprise-goal-setting--tracking-portal)
+  - [📑 Index](#-index)
+  - [1. Executive Summary](#1-executive-summary)
+  - [2. Problem Statement \& Objectives](#2-problem-statement--objectives)
+  - [3. Solution Overview](#3-solution-overview)
+  - [4. Live Deployment \& Repository](#4-live-deployment--repository)
+  - [5. Demo Credentials](#5-demo-credentials)
+  - [6. System Architecture](#6-system-architecture)
+    - [6.1 Architecture Diagram (PlantUML)](#61-architecture-diagram-plantuml)
+    - [6.2 Deployment Topology (PlantUML)](#62-deployment-topology-plantuml)
+    - [6.3 Goal Sheet State Machine (PlantUML)](#63-goal-sheet-state-machine-plantuml)
+    - [6.4 ER Diagram (PlantUML)](#64-er-diagram-plantuml)
+    - [6.5 Approval Sequence (PlantUML)](#65-approval-sequence-plantuml)
+  - [7. Technology Stack](#7-technology-stack)
+  - [8. Core Feature Walkthrough](#8-core-feature-walkthrough)
+    - [8.1 Employee](#81-employee)
+    - [8.2 Manager](#82-manager)
+    - [8.3 Admin / HR](#83-admin--hr)
+  - [9. Application Screenshots](#9-application-screenshots)
+    - [9.1 Admin — Dashboard](#91-admin--dashboard)
+    - [9.2 Admin — Cycles (BRD-compliant Quarterlies)](#92-admin--cycles-brd-compliant-quarterlies)
+    - [9.3 Admin — Escalations (Rules + Add-Rule Modal)](#93-admin--escalations-rules--add-rule-modal)
+    - [9.4 Admin — Escalations List](#94-admin--escalations-list)
+    - [9.5 Admin — User Management with Send-Password](#95-admin--user-management-with-send-password)
+    - [9.6 Employee — Goals Page](#96-employee--goals-page)
+  - [10. Scoring Engine — Formula Reference](#10-scoring-engine--formula-reference)
+  - [11. Security, RBAC \& Audit](#11-security-rbac--audit)
+  - [12. Integrations: Azure AD SSO, SMTP Email, Teams](#12-integrations-azure-ad-sso-smtp-email-teams)
+  - [13. BRD Compliance Matrix](#13-brd-compliance-matrix)
+  - [14. Local Setup \& Run Instructions](#14-local-setup--run-instructions)
+  - [15. Future Roadmap](#15-future-roadmap)
+  - [16. Conclusion](#16-conclusion)
 
 ---
 
@@ -652,6 +664,64 @@ GoalFlow is a **complete, deployed, BRD-compliant** implementation of Atomberg's
 > ✅ Working link — https://goal-flow-theta.vercel.app
 > ✅ Source code — https://github.com/Gurjas2112/GoalFlow
 > ✅ Architecture diagram — Sections 6.1 – 6.5 above
+
+---
+
+## 17. Reference Tools & Links
+
+### 17.1 Live Project & Source
+| Resource | Link |
+|---|---|
+| 🌐 **Live App (Production)** | https://goal-flow-theta.vercel.app |
+| 💻 **GitHub Repository** | https://github.com/Gurjas2112/GoalFlow |
+| 🚂 **API (Railway)** | https://goalflow-api.up.railway.app |
+| 📂 **Database (Supabase)** | https://supabase.com/dashboard (ap-south-1, Mumbai) |
+
+### 17.2 Frameworks & Libraries
+| Tool | Purpose | Link |
+|---|---|---|
+| **React 19** | Frontend UI library | https://react.dev |
+| **Vite 6** | Frontend build tool & dev server | https://vitejs.dev |
+| **TypeScript 5** | Type-safe JS for both apps | https://www.typescriptlang.org |
+| **Tailwind CSS 3** | Utility-first styling | https://tailwindcss.com |
+| **React Router 7** | Client-side routing | https://reactrouter.com |
+| **Express 4** | Node.js HTTP framework (API) | https://expressjs.com |
+| **Prisma 6** | Type-safe ORM + migrations | https://www.prisma.io |
+| **PostgreSQL 16** | Relational database engine | https://www.postgresql.org |
+| **Zod** | Runtime schema validation | https://zod.dev |
+| **bcryptjs** | Password hashing | https://github.com/dcodeIO/bcrypt.js |
+| **jsonwebtoken** | JWT auth tokens | https://github.com/auth0/node-jsonwebtoken |
+| **node-cron** | Hourly escalation trigger | https://github.com/node-cron/node-cron |
+| **Nodemailer** | SMTP email transport | https://nodemailer.com |
+| **MSAL.js (@azure/msal-browser)** | Azure AD / Entra ID SSO | https://learn.microsoft.com/en-us/entra/identity-platform/msal-overview |
+| **Recharts** | Analytics charts | https://recharts.org |
+
+### 17.3 Hosting, DevOps & Integrations
+| Service | Role | Link |
+|---|---|---|
+| **Vercel** | Frontend static hosting + CI/CD | https://vercel.com |
+| **Railway** | API container hosting + cron | https://railway.app |
+| **Supabase** | Managed PostgreSQL | https://supabase.com |
+| **GitHub** | Source control + Actions | https://github.com |
+| **Microsoft Entra ID (Azure AD)** | Enterprise SSO provider | https://entra.microsoft.com |
+| **Microsoft Teams Webhooks** | Channel notifications | https://learn.microsoft.com/en-us/microsoftteams/platform/webhooks-and-connectors/how-to/add-incoming-webhook |
+| **Gmail SMTP / App Passwords** | Free email relay | https://myaccount.google.com/apppasswords |
+| **Docker** | Local containerized dev (compose) | https://www.docker.com |
+
+### 17.4 Documentation & Diagrams
+| Tool | Use in this submission | Link |
+|---|---|---|
+| **PlantUML** | All architecture & flow diagrams (Sections 6.1–6.5) | https://plantuml.com |
+| **Mermaid** | Inline state diagrams (where used) | https://mermaid.js.org |
+| **python-docx** | Generates `GoalFlow_Submission.docx` from this Markdown | https://python-docx.readthedocs.io |
+| **VS Code + GitHub Copilot** | Primary IDE & AI pair-programmer | https://code.visualstudio.com |
+
+### 17.5 Atomberg / AtomQuest References
+| Resource | Link |
+|---|---|
+| **Atomberg Technologies** | https://atomberg.com |
+| **AtomQuest Hackathon (Unstop)** | https://unstop.com/hackathons/atomquest |
+| **Original BRD** | `hackathon_essential_docs/REQUIREMENTS_ANALYSIS.md` (in this repo) |
 
 <div align="center">
 

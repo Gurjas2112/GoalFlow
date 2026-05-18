@@ -310,7 +310,7 @@ AZURE_TENANT_ID=<tenant-id>
 **Status:** ✅ **FULLY IMPLEMENTED**
 
 - [x] **Automated Email Notifications**
-  - Provider: SendGrid API
+  - Provider: SMTP via Nodemailer (Gmail App Passwords / Office 365 / SES SMTP / any SMTP relay)
   - Events triggered:
     - Goal submission → Manager notified
     - Goal approval → Employee notified
@@ -319,7 +319,7 @@ AZURE_TENANT_ID=<tenant-id>
   
 - [x] **Implementation:** `apps/api/src/utils/notify.ts`
   - Retry logic: 3 attempts with 5-second delays
-  - Fallback: If SendGrid unconfigured, app continues (non-blocking)
+  - Fallback: If SMTP unconfigured, app continues (non-blocking)
   - Email templates: HTML styled, branded with GoalFlow logo
 
 - [x] **Microsoft Teams Integration**
@@ -443,7 +443,7 @@ AZURE_TENANT_ID=<tenant-id>
 | **Backend** | Express.js + Node.js | $5 (Railway) |
 | **Database** | PostgreSQL + Supabase | $0 (free tier) |
 | **Authentication** | JWT + MSAL.js | $0 |
-| **Email** | SendGrid | $0 (100/day free) |
+| **Email** | Nodemailer (SMTP) | $0 (~500/day via Gmail App Password) |
 | **CI/CD** | GitHub Actions | $0 |
 | **Webhooks** | Teams native | $0 |
 | **Total** | | **$5/month** |
