@@ -68,9 +68,11 @@ async function main() {
   if (existingRules === 0) {
     await prisma.escalationRule.createMany({
       data: [
-        { eventType: 'GOAL_SHEET_NOT_SUBMITTED', triggerAfterDays: 7,  notifyRole: 'MANAGER', isActive: true },
-        { eventType: 'GOAL_SHEET_NOT_APPROVED',  triggerAfterDays: 3,  notifyRole: 'ADMIN',   isActive: true },
-        { eventType: 'CHECKIN_OVERDUE',          triggerAfterDays: 14, notifyRole: 'MANAGER', isActive: true },
+        // NOTE: eventType strings must match those handled in
+        // apps/api/src/jobs/escalationTrigger.ts. Keep these in sync.
+        { eventType: 'GOAL_NOT_SUBMITTED', triggerAfterDays: 7,  notifyRole: 'MANAGER', isActive: true },
+        { eventType: 'GOAL_NOT_APPROVED',  triggerAfterDays: 3,  notifyRole: 'ADMIN',   isActive: true },
+        { eventType: 'CHECKIN_NOT_DONE',   triggerAfterDays: 14, notifyRole: 'MANAGER', isActive: true },
       ],
     });
   }

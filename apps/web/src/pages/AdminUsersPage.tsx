@@ -34,6 +34,7 @@ export default function AdminUsersPage() {
   const [form, setForm] = useState({ name: '', email: '', role: 'EMPLOYEE', departmentId: '', managerId: '' });
   const [error, setError] = useState('');
   const [success, setSuccess] = useState<SuccessState | null>(null);
+  const [resending, setResending] = useState<string | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -80,6 +81,27 @@ export default function AdminUsersPage() {
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to create user';
       setError(errorMessage);
+    }
+  };
+
+  const handleResendPassword = async (u: User) => {
+    if (!window.confirm(`Generate a new login password for ${u.name} (${u.email}) and email it to them?\n\nThis invalidates their previous password. They will be required to change it on next login.`)) {
+      return;
+    }
+    setError('');
+    setSuccess(null);
+    setResending(u.id);
+    try {
+      const res = await api.post(`/users/${u.id}/resend-password`);
+      setSuccess({
+        email: res.data.email,
+        tempPassword: res.data.temporaryPassword,
+        message: res.data.message,
+      });
+    } catch (err: any) {
+      setError(err?.response?.data?.error || 'Failed to resend password');
+    } finally {
+      setResending(null);
     }
   };
 
@@ -134,7 +156,7 @@ export default function AdminUsersPage() {
       )}
       <div className="table-container">
         <table>
-          <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Department</th><th>Manager</th><th>Auth</th><th>Last Azure Sign-in</th></tr></thead>
+          <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Department</th><th>Manager</th><th>Auth</th><th>Last Azure Sign-in</th><th>Actions</th></tr></thead>
           <tbody>
             {users.map((u) => (
               <tr key={u.id}>
@@ -155,6 +177,17 @@ export default function AdminUsersPage() {
                 </td>
                 <td className="text-secondary" style={{ fontSize: '0.82rem' }}>
                   {u.lastSsoLoginAt ? new Date(u.lastSsoLoginAt).toLocaleString() : '—'}
+                </td>
+                <td>
+                  <button
+                    className="btn btn-ghost"
+                    style={{ padding: '4px 10px', fontSize: '0.82rem' }}
+                    disabled={resending === u.id}
+                    onClick={() => handleResendPassword(u)}
+                    title="Generate a new login password and email it to this user. They will be forced to change it on next login."
+                  >
+                    {resending === u.id ? 'Sending…' : '📧 Send Password'}
+                  </button>
                 </td>
               </tr>
             ))}

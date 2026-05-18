@@ -62,6 +62,14 @@ export default function ChangePasswordPage() {
           </p>
         </div>
 
+        {forced && (
+          <div className="alert-info" style={{ marginBottom: 12, fontSize: '0.85rem' }}>
+            💡 Don't know your current password? Ask your administrator to use
+            <strong> Admin → Users → Send Password</strong> on your account — they'll
+            email you a temporary password to enter here.
+          </div>
+        )}
+
         {error && <div className="login-error">{error}</div>}
         {success && <div className="alert-info cp-success">{success}</div>}
 

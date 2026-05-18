@@ -143,6 +143,45 @@ router.post('/', requireAuth, requireRole('ADMIN'), async (req: AuthRequest, res
   }
 });
 
+// POST /api/users/:id/resend-password — Admin: regenerate a temp login password
+// and email it to the user. The user enters this on the "Current password" field
+// of the forced Change Password screen, then chooses a new one. Useful when an
+// employee signed in via Azure SSO but is stuck on the change-password screen
+// because they never received / lost the original welcome email.
+router.post('/:id/resend-password', requireAuth, requireRole('ADMIN'), async (req: AuthRequest, res: Response) => {
+  try {
+    const target = await prisma.user.findUnique({ where: { id: req.params.id } });
+    if (!target) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
+
+    const temporaryPassword = generateTemporaryPassword();
+    const passwordHash = await bcrypt.hash(temporaryPassword, 10);
+
+    await prisma.user.update({
+      where: { id: target.id },
+      data: { passwordHash, mustChangePassword: true },
+    });
+
+    // Fire-and-forget email — never blocks the admin response so the admin
+    // can still copy the temp password from the API result even if SMTP is down.
+    notifyAccountCreated(target.name, target.email, temporaryPassword).catch((err) => {
+      console.error('Failed to send resend-password email:', err?.message || err);
+    });
+
+    res.json({
+      ok: true,
+      email: target.email,
+      temporaryPassword,
+      message: `Login password emailed to ${target.email}. They must enter it as the current password on next login and choose a new one.`,
+    });
+  } catch (err) {
+    console.error('Resend password error:', err);
+    res.status(500).json({ error: 'Failed to resend password' });
+  }
+});
+
 // PUT /api/users/:id — Admin: update user
 router.put('/:id', requireAuth, requireRole('ADMIN'), async (req: AuthRequest, res: Response) => {
   try {
