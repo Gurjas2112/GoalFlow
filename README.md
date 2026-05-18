@@ -472,6 +472,16 @@ AZURE_EMPLOYEE_EMAILS="eve@gmail.com"             # explicit per-email allowlist
 ADMIN_OVERRIDE_EMAIL="you@corp.com"
 
 # Email Notifications (optional)
+# --- Option A (recommended, free): Gmail SMTP via Nodemailer ---
+# 1. Enable 2-Step Verification on the Gmail account
+# 2. Generate an App Password: https://myaccount.google.com/apppasswords
+# 3. Paste the 16-char password (no spaces) below
+SMTP_HOST="smtp.gmail.com"
+SMTP_PORT="587"
+SMTP_USER="your.email@gmail.com"
+SMTP_PASS="abcdabcdabcdabcd"
+SMTP_FROM_EMAIL="your.email@gmail.com"
+# --- Option B (fallback): SendGrid HTTP API (requires verified sender) ---
 SENDGRID_API_KEY="your-sendgrid-api-key"
 SENDGRID_FROM_EMAIL="noreply@goalflow.demo"
 
@@ -638,19 +648,48 @@ Redirects to role-appropriate dashboard
 | Goal sheet returned | ✅ | ✅ | Employee |
 | Check-in reminder | ✅ | — | Employee |
 
-### SendGrid Email Setup
+### Email Setup
+
+GoalFlow supports two transports. At startup the API picks the first one that has all required variables set:
+
+1. **SMTP via Nodemailer** (recommended, free, no third-party signup) — used if `SMTP_HOST`, `SMTP_USER`, `SMTP_PASS` are all set.
+2. **SendGrid HTTP API** (fallback) — used if `SENDGRID_API_KEY` is set.
+
+The Admin → Notifications page shows the active transport and lets you send a test email.
+
+#### Option A — Gmail SMTP (free, recommended)
+
+Gmail allows ~500 messages/day from a personal account, more from Workspace. No domain or sender verification needed beyond enabling 2FA.
+
+1. Enable **2-Step Verification** on the Google account: https://myaccount.google.com/security
+2. Create an **App Password**: https://myaccount.google.com/apppasswords
+   - App: *Mail*, Device: *Other → "GoalFlow"* — copy the 16-character password.
+3. Add to your `.env` (or Railway env vars):
+   ```env
+   SMTP_HOST="smtp.gmail.com"
+   SMTP_PORT="587"
+   SMTP_USER="your.email@gmail.com"
+   SMTP_PASS="abcdabcdabcdabcd"        # 16 chars, no spaces
+   SMTP_FROM_EMAIL="your.email@gmail.com"
+   ```
+4. Restart the API. Admin → Notifications should show **Active email transport: ✅ SMTP (Nodemailer)**.
+5. Verify with the CLI tool:
+   ```bash
+   node scripts/test-email.mjs recipient@example.com
+   ```
+
+#### Option B — SendGrid (fallback)
 
 1. Go to [sendgrid.com](https://sendgrid.com) → Sign up (free tier: 100 emails/day)
 2. Navigate to **Settings → API Keys → Create API Key**
    - Name: `GoalFlow`
    - Permissions: **Restricted Access** → enable **Mail Send → Full Access**
-3. Copy the API key (shown only once)
-4. Add to your `.env`:
+3. **Verify a Single Sender** under **Settings → Sender Authentication** — SendGrid rejects any `From` address that has not been verified, which is the most common cause of HTTP 400.
+4. Copy the API key (shown only once) and add to your `.env`:
    ```env
    SENDGRID_API_KEY="SG.xxxxxxxxxxxxxxxxxxxxx"
-   SENDGRID_FROM_EMAIL="noreply@goalflow.demo"
+   SENDGRID_FROM_EMAIL="verified-sender@yourdomain.com"
    ```
-5. *(Optional)* Verify a sender identity under **Settings → Sender Authentication** for production use
 
 ### Microsoft Teams Webhook Setup
 

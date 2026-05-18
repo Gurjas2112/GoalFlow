@@ -24,9 +24,9 @@ router.post('/test-email', requireAuth, requireRole('ADMIN'), async (req: AuthRe
   }
   const result = await sendTestEmail(to);
   if (result.ok) {
-    res.json({ ok: true, statusCode: result.statusCode, message: `Test email sent to ${to}` });
+    res.json({ ok: true, transport: result.transport, statusCode: result.statusCode, message: `Test email sent via ${result.transport} to ${to}` });
   } else {
-    res.status(502).json({ ok: false, statusCode: result.statusCode, error: result.error });
+    res.status(502).json({ ok: false, transport: result.transport, statusCode: result.statusCode, error: result.error });
   }
 });
 

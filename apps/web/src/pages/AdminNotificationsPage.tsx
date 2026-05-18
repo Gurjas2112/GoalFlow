@@ -12,8 +12,10 @@ interface NotificationLog {
 }
 
 interface ProviderConfig {
+  smtp: { configured: boolean; host: string | null; port: string | null; user: string | null };
   sendgrid: { configured: boolean; apiKeyHint: string | null; fromEmail: string | null; fromEmailConfigured: boolean };
   teams: { configured: boolean };
+  activeEmailTransport: 'SMTP' | 'SENDGRID' | 'NONE';
 }
 
 export default function AdminNotificationsPage() {
@@ -55,7 +57,7 @@ export default function AdminNotificationsPage() {
       fetchLogs();
     } catch (err: any) {
       const data = err?.response?.data;
-      setTestResult(`❌ ${data?.error || err.message}${data?.statusCode ? ` (HTTP ${data.statusCode})` : ''}`);
+      setTestResult(`❌ ${data?.error || err.message}${data?.transport ? ` [${data.transport}]` : ''}${data?.statusCode ? ` (HTTP ${data.statusCode})` : ''}`);
       fetchLogs();
     } finally {
       setTestSending(false);
@@ -125,19 +127,30 @@ export default function AdminNotificationsPage() {
         <div className="card" style={{ marginBottom: 24, padding: 16 }}>
           <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', alignItems: 'center' }}>
             <div>
+              <strong>Active email transport:</strong>{' '}
+              {config.activeEmailTransport === 'SMTP' && <span style={{ color: 'var(--success)' }}>✅ SMTP (Nodemailer)</span>}
+              {config.activeEmailTransport === 'SENDGRID' && <span style={{ color: 'var(--success)' }}>✅ SendGrid</span>}
+              {config.activeEmailTransport === 'NONE' && <span style={{ color: 'var(--danger)' }}>❌ None — set SMTP_HOST/SMTP_USER/SMTP_PASS or SENDGRID_API_KEY</span>}
+            </div>
+            <div>
+              <strong>SMTP:</strong>{' '}
+              {config.smtp.configured ? (
+                <span style={{ color: 'var(--success)' }}>✅ {config.smtp.user}@{config.smtp.host}:{config.smtp.port || '587'}</span>
+              ) : (
+                <span style={{ color: 'var(--text-muted)' }}>— Not configured</span>
+              )}
+            </div>
+            <div>
               <strong>SendGrid:</strong>{' '}
               {config.sendgrid.configured ? (
                 <span style={{ color: 'var(--success)' }}>✅ Configured</span>
               ) : (
-                <span style={{ color: 'var(--danger)' }}>❌ Not configured — set SENDGRID_API_KEY on the API server</span>
+                <span style={{ color: 'var(--text-muted)' }}>— Not configured</span>
               )}
               {config.sendgrid.configured && (
                 <div style={{ fontSize: 11, opacity: 0.7, marginTop: 4 }}>
                   Key: <code>{config.sendgrid.apiKeyHint}</code>{' · '}
-                  From: <code>{config.sendgrid.fromEmail || '(default noreply@goalflow.demo)'}</code>
-                  {!config.sendgrid.fromEmailConfigured && (
-                    <span style={{ color: 'var(--warning)' }}> — SENDGRID_FROM_EMAIL unset; SendGrid will reject unless the default address is a verified sender</span>
-                  )}
+                  From: <code>{config.sendgrid.fromEmail || '(default)'}</code>
                 </div>
               )}
             </div>
@@ -161,7 +174,7 @@ export default function AdminNotificationsPage() {
             <button
               className="btn btn-primary"
               onClick={sendTest}
-              disabled={!testEmail || testSending || !config.sendgrid.configured}
+              disabled={!testEmail || testSending || config.activeEmailTransport === 'NONE'}
               style={{ padding: '6px 14px' }}
             >
               {testSending ? 'Sending…' : 'Send test email'}

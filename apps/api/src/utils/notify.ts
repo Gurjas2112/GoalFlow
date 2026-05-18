@@ -1,10 +1,18 @@
 /**
  * Notification utilities with retry logic and in-memory logging.
- * Supports SendGrid email and Microsoft Teams webhooks.
+ *
+ * Email transport priority (first one configured wins):
+ *   1. SMTP via Nodemailer  — set SMTP_HOST, SMTP_USER, SMTP_PASS (free with
+ *      Gmail App Passwords, no third-party signup required).
+ *   2. SendGrid HTTP API    — set SENDGRID_API_KEY.
+ *
+ * Teams transport: TEAMS_WEBHOOK_URL.
+ *
  * Notifications are non-blocking — app works fully without them configured.
  */
 import https from 'https';
 import http from 'http';
+import nodemailer, { Transporter } from 'nodemailer';
 
 // ═══ NOTIFICATION LOG ═══
 interface NotificationLog {
@@ -27,12 +35,19 @@ export function getNotificationLog() {
 
 export function getNotificationConfig() {
   const sendgridKey = process.env.SENDGRID_API_KEY || '';
-  const fromEmail = process.env.SENDGRID_FROM_EMAIL || '';
+  const fromEmail = process.env.SENDGRID_FROM_EMAIL || process.env.SMTP_FROM_EMAIL || '';
   const teamsUrl = process.env.TEAMS_WEBHOOK_URL || '';
+  const smtpHost = process.env.SMTP_HOST || '';
+  const smtpUser = process.env.SMTP_USER || '';
   return {
+    smtp: {
+      configured: !!(smtpHost && smtpUser),
+      host: smtpHost || null,
+      port: process.env.SMTP_PORT || null,
+      user: smtpUser || null,
+    },
     sendgrid: {
       configured: !!sendgridKey,
-      // Show only a safe hint, never the full key
       apiKeyHint: sendgridKey ? `${sendgridKey.slice(0, 5)}… (${sendgridKey.length} chars)` : null,
       fromEmail: fromEmail || null,
       fromEmailConfigured: !!fromEmail,
@@ -40,31 +55,67 @@ export function getNotificationConfig() {
     teams: {
       configured: !!teamsUrl,
     },
+    activeEmailTransport: smtpHost && smtpUser ? 'SMTP' : (sendgridKey ? 'SENDGRID' : 'NONE'),
   };
 }
 
 export async function sendTestEmail(to: string) {
   const html = `<div style="font-family:sans-serif;padding:20px">
-    <h2 style="color:#6366f1">✅ GoalFlow SendGrid Test</h2>
+    <h2 style="color:#6366f1">✅ GoalFlow Email Test</h2>
     <p>This is a test email triggered from the Admin Notifications page.</p>
-    <p>If you received this, your SendGrid integration is working.</p>
+    <p>If you received this, your email integration is working.</p>
     <p style="color:#888;font-size:12px">Sent at ${new Date().toISOString()}</p>
   </div>`;
-  // Use the raw sender so we can return the real SendGrid status code and any error.
+  const smtpConfigured = !!(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS);
+  const useSmtp = smtpConfigured;
+  const transportName = useSmtp ? 'SMTP' : 'SendGrid';
   try {
-    const status = await sendEmailRaw(to, 'GoalFlow SendGrid Test', html);
+    const status = useSmtp
+      ? await sendSmtpRaw(to, 'GoalFlow Email Test', html)
+      : await sendEmailRaw(to, 'GoalFlow Email Test', html);
     notificationQueue.push({
-      event: 'SendGrid Test', recipient: to, channel: 'EMAIL',
+      event: `Email Test (${transportName})`, recipient: to, channel: 'EMAIL',
       status: 'SUCCESS', attempt: 1, timestamp: new Date(),
     });
-    return { ok: true, statusCode: status };
+    return { ok: true, transport: transportName, statusCode: status };
   } catch (err: any) {
     notificationQueue.push({
-      event: 'SendGrid Test', recipient: to, channel: 'EMAIL',
+      event: `Email Test (${transportName})`, recipient: to, channel: 'EMAIL',
       status: 'FAILED', attempt: 1, error: err?.message || String(err), timestamp: new Date(),
     });
-    return { ok: false, statusCode: err?.statusCode || null, error: err?.message || String(err) };
+    return { ok: false, transport: transportName, statusCode: err?.statusCode || null, error: err?.message || String(err) };
   }
+}
+
+// ═══ SMTP TRANSPORT (Nodemailer) — free alternative to SendGrid ═══
+let cachedTransporter: Transporter | null = null;
+function getSmtpTransporter(): Transporter | null {
+  const host = process.env.SMTP_HOST;
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASS;
+  if (!host || !user || !pass) return null;
+  if (cachedTransporter) return cachedTransporter;
+  const port = parseInt(process.env.SMTP_PORT || '587', 10);
+  cachedTransporter = nodemailer.createTransport({
+    host,
+    port,
+    secure: port === 465, // true for 465 (SMTPS), false for 587 (STARTTLS)
+    auth: { user, pass },
+  });
+  return cachedTransporter;
+}
+
+async function sendSmtpRaw(to: string, subject: string, html: string): Promise<number> {
+  const transporter = getSmtpTransporter();
+  if (!transporter) throw new Error('SMTP not configured');
+  const from = process.env.SMTP_FROM_EMAIL || process.env.SENDGRID_FROM_EMAIL || process.env.SMTP_USER!;
+  await transporter.sendMail({
+    from: `"GoalFlow" <${from}>`,
+    to,
+    subject,
+    html,
+  });
+  return 250; // SMTP success code
 }
 
 // ═══ SENDGRID EMAIL WITH RETRY ═══
@@ -114,25 +165,35 @@ async function sendEmailRaw(to: string, subject: string, html: string): Promise<
 }
 
 async function sendEmailWithRetry(to: string, subject: string, html: string, retryCount = 0): Promise<void> {
+  const smtpConfigured = !!(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS);
   const apiKey = process.env.SENDGRID_API_KEY;
-  if (!apiKey) {
-    console.warn('⚠️ SendGrid not configured — email skipped:', subject, '→', to);
+
+  if (!smtpConfigured && !apiKey) {
+    console.warn('⚠️ No email transport configured — skipped:', subject, '→', to);
     notificationQueue.push({
       event: subject, recipient: to, channel: 'EMAIL',
       status: 'SKIPPED', attempt: 0,
-      error: 'SENDGRID_API_KEY not configured on the server',
+      error: 'No email transport configured (set SMTP_HOST/SMTP_USER/SMTP_PASS or SENDGRID_API_KEY)',
       timestamp: new Date(),
     });
     return;
   }
 
+  // Prefer SMTP when configured — it's free with Gmail app passwords and
+  // sidesteps SendGrid's sender-verification requirements.
+  const useSmtp = smtpConfigured;
+  const send = useSmtp
+    ? () => sendSmtpRaw(to, subject, html)
+    : () => sendEmailRaw(to, subject, html);
+  const transportName = useSmtp ? 'SMTP' : 'SendGrid';
+
   try {
-    await sendEmailRaw(to, subject, html);
+    await send();
     notificationQueue.push({
       event: subject, recipient: to, channel: 'EMAIL',
       status: 'SUCCESS', attempt: retryCount + 1, timestamp: new Date(),
     });
-    console.log(`✅ Email sent to ${to}: ${subject}`);
+    console.log(`✅ Email sent via ${transportName} to ${to}: ${subject}`);
   } catch (err: any) {
     const error = err.message || String(err);
     const status = err?.statusCode;
@@ -143,14 +204,14 @@ async function sendEmailWithRetry(to: string, subject: string, html: string, ret
         event: subject, recipient: to, channel: 'EMAIL',
         status: 'RETRYING', attempt: retryCount + 1, error, timestamp: new Date(),
       });
-      console.log(`⏳ Retrying email to ${to} (attempt ${retryCount + 2}/${MAX_RETRIES + 1})`);
+      console.log(`⏳ Retrying email to ${to} via ${transportName} (attempt ${retryCount + 2}/${MAX_RETRIES + 1})`);
       setTimeout(() => sendEmailWithRetry(to, subject, html, retryCount + 1), RETRY_DELAY_MS);
     } else {
       notificationQueue.push({
         event: subject, recipient: to, channel: 'EMAIL',
         status: 'FAILED', attempt: retryCount + 1, error, timestamp: new Date(),
       });
-      console.error(`❌ Email failed to ${to} after ${MAX_RETRIES + 1} attempts:`, error);
+      console.error(`❌ Email failed via ${transportName} to ${to} after ${MAX_RETRIES + 1} attempts:`, error);
     }
   }
 }
