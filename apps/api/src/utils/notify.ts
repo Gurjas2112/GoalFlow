@@ -84,13 +84,25 @@ async function sendEmailRaw(to: string, subject: string, html: string): Promise<
       hostname: 'api.sendgrid.com', path: '/v3/mail/send', method: 'POST',
       headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json', 'Content-Length': data.length },
     }, (res) => {
-      res.on('data', () => {});
+      const chunks: Buffer[] = [];
+      res.on('data', (c) => chunks.push(c));
       res.on('end', () => {
         if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
           resolve(res.statusCode);
         } else {
-          const e: any = new Error(`SendGrid returned ${res.statusCode}`);
+          // Pull SendGrid's structured error so the admin sees the real reason
+          // (e.g. "The from address does not match a verified Sender Identity").
+          const body = Buffer.concat(chunks).toString('utf8');
+          let detail = body;
+          try {
+            const json = JSON.parse(body);
+            if (Array.isArray(json.errors) && json.errors.length) {
+              detail = json.errors.map((er: any) => er.message || JSON.stringify(er)).join('; ');
+            }
+          } catch { /* leave raw body */ }
+          const e: any = new Error(`SendGrid returned ${res.statusCode}: ${detail}`);
           e.statusCode = res.statusCode;
+          e.body = body;
           reject(e);
         }
       });
