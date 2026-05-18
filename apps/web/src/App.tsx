@@ -47,7 +47,7 @@ function AppContent() {
       {user && <Sidebar />}
       <main className={user ? 'main-content' : 'public-content'}>
         <Routes>
-          <Route path="/" element={<HomePage />} />
+          <Route path="/" element={user ? <RoleRedirect /> : <HomePage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignupPage />} />
           <Route path="/change-password" element={<PrivateRoute><ChangePasswordPage /></PrivateRoute>} />
