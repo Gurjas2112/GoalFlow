@@ -11,7 +11,7 @@ interface NotificationLog {
   event: string;
   recipient: string;
   channel: 'EMAIL' | 'TEAMS';
-  status: 'SUCCESS' | 'FAILED' | 'RETRYING';
+  status: 'SUCCESS' | 'FAILED' | 'RETRYING' | 'SKIPPED';
   attempt: number;
   error?: string;
   timestamp: Date;
@@ -23,6 +23,48 @@ const RETRY_DELAY_MS = 5000;
 
 export function getNotificationLog() {
   return notificationQueue.slice(-100);
+}
+
+export function getNotificationConfig() {
+  const sendgridKey = process.env.SENDGRID_API_KEY || '';
+  const fromEmail = process.env.SENDGRID_FROM_EMAIL || '';
+  const teamsUrl = process.env.TEAMS_WEBHOOK_URL || '';
+  return {
+    sendgrid: {
+      configured: !!sendgridKey,
+      // Show only a safe hint, never the full key
+      apiKeyHint: sendgridKey ? `${sendgridKey.slice(0, 5)}… (${sendgridKey.length} chars)` : null,
+      fromEmail: fromEmail || null,
+      fromEmailConfigured: !!fromEmail,
+    },
+    teams: {
+      configured: !!teamsUrl,
+    },
+  };
+}
+
+export async function sendTestEmail(to: string) {
+  const html = `<div style="font-family:sans-serif;padding:20px">
+    <h2 style="color:#6366f1">✅ GoalFlow SendGrid Test</h2>
+    <p>This is a test email triggered from the Admin Notifications page.</p>
+    <p>If you received this, your SendGrid integration is working.</p>
+    <p style="color:#888;font-size:12px">Sent at ${new Date().toISOString()}</p>
+  </div>`;
+  // Use the raw sender so we can return the real SendGrid status code and any error.
+  try {
+    const status = await sendEmailRaw(to, 'GoalFlow SendGrid Test', html);
+    notificationQueue.push({
+      event: 'SendGrid Test', recipient: to, channel: 'EMAIL',
+      status: 'SUCCESS', attempt: 1, timestamp: new Date(),
+    });
+    return { ok: true, statusCode: status };
+  } catch (err: any) {
+    notificationQueue.push({
+      event: 'SendGrid Test', recipient: to, channel: 'EMAIL',
+      status: 'FAILED', attempt: 1, error: err?.message || String(err), timestamp: new Date(),
+    });
+    return { ok: false, statusCode: err?.statusCode || null, error: err?.message || String(err) };
+  }
 }
 
 // ═══ SENDGRID EMAIL WITH RETRY ═══
@@ -63,6 +105,12 @@ async function sendEmailWithRetry(to: string, subject: string, html: string, ret
   const apiKey = process.env.SENDGRID_API_KEY;
   if (!apiKey) {
     console.warn('⚠️ SendGrid not configured — email skipped:', subject, '→', to);
+    notificationQueue.push({
+      event: subject, recipient: to, channel: 'EMAIL',
+      status: 'SKIPPED', attempt: 0,
+      error: 'SENDGRID_API_KEY not configured on the server',
+      timestamp: new Date(),
+    });
     return;
   }
 
@@ -145,6 +193,12 @@ async function sendTeamsWithRetry(title: string, message: string, deepLink?: str
   const webhookUrl = process.env.TEAMS_WEBHOOK_URL;
   if (!webhookUrl) {
     console.warn('⚠️ Teams webhook not configured — notification skipped:', title);
+    notificationQueue.push({
+      event: title, recipient: 'Teams Channel', channel: 'TEAMS',
+      status: 'SKIPPED', attempt: 0,
+      error: 'TEAMS_WEBHOOK_URL not configured on the server',
+      timestamp: new Date(),
+    });
     return;
   }
 
