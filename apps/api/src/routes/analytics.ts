@@ -69,36 +69,65 @@ router.get('/qoq', requireAuth, async (req: AuthRequest, res: Response) => {
 // GET /api/analytics/heatmap — Completion rate per department per cycle
 router.get('/heatmap', requireAuth, requireRole('ADMIN', 'MANAGER'), async (req: AuthRequest, res: Response) => {
   try {
-    const departments = await prisma.department.findMany({
-      include: { users: { select: { id: true, role: true } } },
-    });
-    const cycles = await prisma.goalCycle.findMany({ orderBy: { openDate: 'asc' } });
+    // Run independent base queries in parallel
+    const [departments, cycles, achievements] = await Promise.all([
+      prisma.department.findMany({
+        select: {
+          id: true,
+          name: true,
+          users: { where: { role: 'EMPLOYEE' }, select: { id: true } },
+        },
+      }),
+      prisma.goalCycle.findMany({
+        select: { id: true, year: true, phase: true },
+        orderBy: { openDate: 'asc' },
+      }),
+      // Single query for ALL achievements with completed actuals, with the minimal
+      // joins needed to derive (departmentId, cycleId, userId).
+      prisma.achievement.findMany({
+        where: { actual: { not: null } },
+        select: {
+          cycleId: true,
+          goal: {
+            select: {
+              goalSheet: {
+                select: {
+                  userId: true,
+                  user: { select: { departmentId: true, role: true } },
+                },
+              },
+            },
+          },
+        },
+      }),
+    ]);
+
+    // Build set of (deptId|cycleId) -> Set<userId> in one pass
+    const completedMap = new Map<string, Set<string>>();
+    for (const a of achievements) {
+      const u = a.goal.goalSheet.user;
+      if (!u || u.role !== 'EMPLOYEE' || !u.departmentId) continue;
+      const key = `${u.departmentId}|${a.cycleId}`;
+      let set = completedMap.get(key);
+      if (!set) {
+        set = new Set<string>();
+        completedMap.set(key, set);
+      }
+      set.add(a.goal.goalSheet.userId);
+    }
 
     const result = [];
     for (const dept of departments) {
+      const total = dept.users.length;
+      if (total === 0) continue;
       for (const cycle of cycles) {
-        const employeeIds = dept.users.filter((u) => u.role === 'EMPLOYEE').map((u) => u.id);
-        if (employeeIds.length === 0) continue;
-
-        const completedAchievements = await prisma.achievement.findMany({
-          where: {
-            cycleId: cycle.id,
-            goal: { goalSheet: { userId: { in: employeeIds } } },
-            actual: { not: null },
-          },
-          select: { goal: { select: { goalSheet: { select: { userId: true } } } } },
-        });
-
-        const uniqueCompleted = new Set(
-          completedAchievements.map((a) => a.goal.goalSheet.userId)
-        ).size;
-
+        const completed = completedMap.get(`${dept.id}|${cycle.id}`)?.size ?? 0;
         result.push({
           department: dept.name,
           cycle: `${cycle.year}-${cycle.phase}`,
-          completionRate: Math.round((uniqueCompleted / employeeIds.length) * 100),
-          completed: uniqueCompleted,
-          total: employeeIds.length,
+          completionRate: Math.round((completed / total) * 100),
+          completed,
+          total,
         });
       }
     }
@@ -141,16 +170,67 @@ router.get('/goal-distribution', requireAuth, requireRole('ADMIN', 'MANAGER'), a
 // GET /api/analytics/manager-effectiveness
 router.get('/manager-effectiveness', requireAuth, requireRole('ADMIN'), async (req: AuthRequest, res: Response) => {
   try {
-    const managers = await prisma.user.findMany({
-      where: { role: 'MANAGER' },
-      include: { reports: { select: { id: true, name: true } } },
-    });
+    const [managers, cycles] = await Promise.all([
+      prisma.user.findMany({
+        where: { role: 'MANAGER' },
+        select: {
+          id: true,
+          name: true,
+          reports: { select: { id: true } },
+        },
+      }),
+      prisma.goalCycle.findMany({
+        where: { phase: { in: ['Q1', 'Q2', 'Q3', 'Q4'] } },
+        orderBy: { openDate: 'desc' },
+        take: 4,
+        select: { id: true },
+      }),
+    ]);
 
-    const cycles = await prisma.goalCycle.findMany({
-      where: { phase: { in: ['Q1', 'Q2', 'Q3', 'Q4'] } },
-      orderBy: { openDate: 'desc' },
-      take: 4,
-    });
+    const cycleIds = cycles.map((c) => c.id);
+    const allTeamIds = managers.flatMap((m) => m.reports.map((r) => r.id));
+
+    if (allTeamIds.length === 0 || cycleIds.length === 0) {
+      res.json([]);
+      return;
+    }
+
+    // Batch-fetch all goal sheets in scope, then all check-ins for those sheets,
+    // and approved-goal counts grouped by user — three queries total.
+    const [sheets, checkIns, approvedGroup] = await Promise.all([
+      prisma.goalSheet.findMany({
+        where: { userId: { in: allTeamIds }, cycleId: { in: cycleIds } },
+        select: { id: true, userId: true },
+      }),
+      prisma.checkIn.findMany({
+        where: {
+          managerId: { in: managers.map((m) => m.id) },
+          goalSheet: { userId: { in: allTeamIds }, cycleId: { in: cycleIds } },
+        },
+        select: { managerId: true },
+      }),
+      prisma.goalSheet.groupBy({
+        by: ['userId'],
+        where: { userId: { in: allTeamIds }, status: { in: ['APPROVED', 'LOCKED'] } },
+        _count: { _all: true },
+      }),
+    ]);
+
+    // sheets per user
+    const sheetCountByUser = new Map<string, number>();
+    for (const s of sheets) {
+      sheetCountByUser.set(s.userId, (sheetCountByUser.get(s.userId) ?? 0) + 1);
+    }
+    // check-ins per manager
+    const checkInsByManager = new Map<string, number>();
+    for (const c of checkIns) {
+      checkInsByManager.set(c.managerId, (checkInsByManager.get(c.managerId) ?? 0) + 1);
+    }
+    // approved goal sheets per user
+    const approvedByUser = new Map<string, number>();
+    for (const r of approvedGroup) {
+      approvedByUser.set(r.userId, r._count._all);
+    }
 
     const result = [];
     for (const manager of managers) {
@@ -158,29 +238,12 @@ router.get('/manager-effectiveness', requireAuth, requireRole('ADMIN'), async (r
       if (teamIds.length === 0) continue;
 
       let totalSheets = 0;
-      let checkInsCompleted = 0;
-
-      for (const cycle of cycles) {
-        const sheets = await prisma.goalSheet.findMany({
-          where: { userId: { in: teamIds }, cycleId: cycle.id },
-        });
-        totalSheets += sheets.length;
-
-        const checkIns = await prisma.checkIn.count({
-          where: {
-            goalSheetId: { in: sheets.map((s) => s.id) },
-            managerId: manager.id,
-          },
-        });
-        checkInsCompleted += checkIns;
+      let goalsApproved = 0;
+      for (const uid of teamIds) {
+        totalSheets += sheetCountByUser.get(uid) ?? 0;
+        goalsApproved += approvedByUser.get(uid) ?? 0;
       }
-
-      const goalsApproved = await prisma.goalSheet.count({
-        where: {
-          userId: { in: teamIds },
-          status: { in: ['APPROVED', 'LOCKED'] },
-        },
-      });
+      const checkInsCompleted = checkInsByManager.get(manager.id) ?? 0;
 
       result.push({
         managerId: manager.id,
